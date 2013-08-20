@@ -15,7 +15,7 @@ import pywinusb.hid as hid
 # Time operations
 from time import sleep
 
-# Keyboard events
+# Keyboard events (only debug for now)
 from msvcrt import kbhit
 
 
@@ -43,7 +43,7 @@ def const_pid():
 # @brief For data from device
 # When receiving data from device it is called function, that fill this\n
 # global variable
-i_data_in = 0
+i_data_in = [0x00]*8
 
 # @}
 
@@ -75,7 +75,11 @@ def tx_data_to_device( data_8bit ):
         # Define buffer ; 9 = report size (8 bits) + 1 byte (report id)
         buffer= [0x00]*9        # Create and clear buffer
         buffer[0]=0x00          # report id
-        buffer[1]=data_8bit     # 8 bits
+        
+        print("+-------------------------------")
+        for i in range(8):
+            buffer[i+1] = data_8bit[i]
+            print("| TX: {0}".format(hex(data_8bit[i])))
         
         # Send data in buffer
         out_report.set_raw_data(buffer)
@@ -89,6 +93,7 @@ def tx_data_to_device( data_8bit ):
     except:
         # If not found -> exception 
         print("Device not found. Please make sure that device is connected")
+        return 404
 
 
 
@@ -103,11 +108,16 @@ def tx_data_to_device( data_8bit ):
 def in_sample_handler(data):
     # Write data to global variable
     global i_data_in
-    i_data_in = data[1]
     
-    # Print number in hexa if in debug mode
+    for i in range(8):
+        # Write from index 1 -> in index 0 is report_id 
+        i_data_in[i] = data[i+1]
+    
+    # Print number in hex if in debug mode
     if const_version() == "debug":
-      print("| RX: {0}".format(hex(data[1])))
+        print("+-------------------------------")
+        for i in range(8):
+            print("| RX: {0}".format(hex(data[i+1])))
 
 
 ##
@@ -127,17 +137,19 @@ def rx_data_from_device():
         print("Device not found. Please make sure that device is connected")
         return 404
 
-    # Set i_data_in 
+    # Set i_data_in[0] to higher value than 255 (must be higher then 8 bit
+    # maximum)
     global i_data_in
-    i_data_in = 512
+    i_data_in[0] = 512
+    
     #set custom raw data handler
     device.set_raw_data_handler(in_sample_handler)
     
     # And wait until valid number will be received
     print_if_debug("W8 4 data")
-    while i_data_in > 255:
-        sleep(0.1)
-    
+    while i_data_in[0] > 255:  # Wait for valid data
+    #while not kbhit() and device.is_plugged():    # Wait until pressed key
+        sleep(0.04)
             
     print_if_debug("RX done")
       
@@ -152,10 +164,20 @@ def rx_data_from_device():
 ##
 # @brief Main function
 if __name__ == '__main__':
-    data = 0xAC
-    tx_data_to_device( data)
+    # define temporary buffer 
+    data = [0x00]*8;
+    # Fill buffer with demo data
+    data[0] = 0x10
+    for i in range(7):
+        data[i+1] = data[i] +1
+        
+    tx_data_to_device( data )
     
     data = rx_data_from_device();
-    print(hex(data))
-
     
+    
+    if const_version() == "debug":
+        print("+-------------------------------\n Data in buffer")
+        for i in range(8):
+            print(hex(data[i]))
+
