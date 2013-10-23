@@ -10,7 +10,7 @@
 # @author Martin Stejskal
 
 # Universal protocol for embedded systems
-from lnac_lib.lnac_bridge_uniprot import *
+from lnac_lib.HW_bridge_uniprot import *
 
 # Time operations
 from time import sleep
@@ -30,22 +30,51 @@ if __name__ == '__main__':
     
     print("[LNAC settings] Alive!")
     
+    
     # Scheduler
     program_run = 1
+    
+    buff_size = 150
+    
+    i_tx_data = [0x00]*buff_size
+
+    i_tx_data[0] = 0;
+    i_tx_data[1] = 3; 
+    
+    
+    
+    status = bridge_init()
+    if(status != 0):
+        print("Device not found! Sorry")
+        exit()
     
 #    while program_run == 1:
 #        if(kbhit()):
 #            program_run = 0
     # Send data to device
-    Uniprot_config_TX_packet( 0 );
-    Uniprot_config_RX_packet( 3 );
-    Uniprot_USB_tx_data( 0x00 );
+    Uniprot_config_TX_packet( 2 )
+    Uniprot_config_RX_packet( 44 )
+    Uniprot_USB_tx_data( i_tx_data )
         
         
+    Uniprot_USB_rx_data()
+    
+    #raw_input("Answer to AVR")
+    
+    Uniprot_USB_tx_command('N')
+    
+    Uniprot_USB_rx_data()
+    
+    Uniprot_USB_tx_command('A')
         
-        
+#    device = usb_open_device(0x03EB, 0x204F)
+#   if(device == 404):
+#        print("Dev not found")
+#    print(device)
     
     # When program_run will be not equal 1 -> jump out of the while
+
+    bridge_close()
     print("[LNAC settings] Bye")
     
     """"
@@ -71,4 +100,7 @@ if __name__ == '__main__':
     
     print(hex(crc))
     """
+    
+    exit()
+
 
