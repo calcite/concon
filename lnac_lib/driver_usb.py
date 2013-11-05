@@ -38,10 +38,19 @@ const_USB_DRV_VERSION = "release"
 i_data_in = [0x00]*8
 
 
+
+
+##
+# @brief Print message only if version is debug
+def print_if_debug_usb_driver( string ):
+    global const_USB_DRV_VERSION
+    
+    if(const_USB_DRV_VERSION == "debug"):
+        print( string )
+
 ##
 # @brief Callback function for "set_raw_data_handler"
 def in_sample_handler(data):
-    global const_USB_DRV_VERSION
     # Write data to global variable
     global i_data_in
     
@@ -50,21 +59,14 @@ def in_sample_handler(data):
         i_data_in[i] = data[i+1]
     
     # Print number in hex if in debug mode
-    if const_USB_DRV_VERSION == "debug":
-        print("+-------------------------------")
-        for i in range(8):
-            print_if_debug("| RX: {0}".format(hex(data[i+1])))
+    print_if_debug_usb_driver("+-------------------------------")
+    for i in range(8):
+       print_if_debug_usb_driver("| Udrv RX:{0}|{1}|{2}".format(i, hex(data[i+1]), str(unichr(data[i+1]))))
 
 
 
 
-##
-# @brief Print message only if version is debug
-def print_if_debug( string ):
-    global const_USB_DRV_VERSION
-    
-    if const_USB_DRV_VERSION == "debug":
-        print( string )
+
 
 
 ##
@@ -77,9 +79,9 @@ def usb_open_device(VID, PID):
     try:
         device = hid.HidDeviceFilter(vendor_id = VID,
                                      product_id = PID).get_devices()[0]
-        print_if_debug("Device found")
+        print_if_debug_usb_driver("Device found")
         device.open()
-        print_if_debug("Device opened")
+        print_if_debug_usb_driver("Device opened")
     except:
         # If not found
         print("Device not found. Please make sure that device is connected")
@@ -96,9 +98,9 @@ def usb_close_device(VID, PID):
     try:
         device = hid.HidDeviceFilter(vendor_id = VID,
                                      product_id = PID).get_devices()[0]
-        print_if_debug("Device found")
+        print_if_debug_usb_driver("Device found")
         device.close()
-        print_if_debug("Device closed")
+        print_if_debug_usb_driver("Device closed")
         return 0
     except:
         # If not found
@@ -120,16 +122,16 @@ def usb_tx_data(device, data_8bit):
     buffer_tx= [0x00]*9        # Create and clear buffer_tx
     buffer_tx[0]=0x00          # report id
     
-    print("+-------------------------------")
+    print_if_debug_usb_driver("+-------------------------------")
     for i in range(8):
         buffer_tx[i+1] = data_8bit[i]
-        print_if_debug("| TX: {0}".format(hex(data_8bit[i])))
+        print_if_debug_usb_driver("| TX: {0}".format(hex(data_8bit[i])))
     
     # Send data in buffer_tx
     out_report.set_raw_data(buffer_tx)
     out_report.send()
     
-    print_if_debug("Data send")
+    print_if_debug_usb_driver("Data send")
 
 ##
 # @brief Receive data from USB interface (8x8bits)
@@ -139,22 +141,29 @@ def usb_tx_data(device, data_8bit):
 
 def usb_rx_data(device):
     global i_data_in
-    i_data_in[0] = 512
+    
+    # Set last byte to value higher then 255 -> can receive only 0 - 255 ->
+    # easy to detect, if all data were written is the check last "Byte"
+    i_data_in[7] = 512
     
     #set custom raw data handler
     device.set_raw_data_handler(in_sample_handler)
     
     # And wait until valid number will be received
-    print_if_debug("W8 4 data")
+    print_if_debug_usb_driver("\nW8 4 data")
     
     tmp = 0
-    while i_data_in[0] > 255:  # Wait for valid data
+    while i_data_in[7] > 255:  # Wait for valid data
     #while not kbhit() and device.is_plugged():    # Wait until pressed key
         #sleep(0.000001)
+        # Instead of sleep function use simple counter
         tmp = tmp + 1
             
-    print_if_debug("RX done")
+    print_if_debug_usb_driver("\nRX done")
     return i_data_in
+
+
+
 
 # << OLD FUNCTIONS >>
 
@@ -168,9 +177,9 @@ def tx_data_to_device_slow( data_8bit, VID, PID ):
     try:
         device = hid.HidDeviceFilter(vendor_id = VID,
                                  product_id = PID).get_devices()[0]
-        print_if_debug("Device found")
+        print_if_debug_usb_driver("Device found")
         device.open()
-        print_if_debug("Device opened")
+        print_if_debug_usb_driver("Device opened")
         
     except:
         # If not found -> exception 
@@ -187,17 +196,17 @@ def tx_data_to_device_slow( data_8bit, VID, PID ):
     print("+-------------------------------")
     for i in range(8):
         buffer_tx[i+1] = data_8bit[i]
-        print_if_debug("| TX: {0}".format(hex(data_8bit[i])))
+        print_if_debug_usb_driver("| TX: {0}".format(hex(data_8bit[i])))
     
     # Send data in buffer_tx
     out_report.set_raw_data(buffer_tx)
     out_report.send()
     
-    print_if_debug("Data send")
+    print_if_debug_usb_driver("Data send")
     
     # Close device
     device.close()
-    print_if_debug("Device closed\n\n")
+    print_if_debug_usb_driver("Device closed\n\n")
 
 
 
@@ -223,9 +232,9 @@ def rx_data_from_device_slow( VID, PID ):
     try:
         device = hid.HidDeviceFilter(vendor_id = VID,
                                      product_id = PID).get_devices()[0]
-        print_if_debug("Device found")
+        print_if_debug_usb_driver("Device found")
         device.open()
-        print_if_debug("Device opened")
+        print_if_debug_usb_driver("Device opened")
     except:
         # If not found -> exception 
         print("Device not found. Please make sure that device is connected")
@@ -240,17 +249,17 @@ def rx_data_from_device_slow( VID, PID ):
     device.set_raw_data_handler(in_sample_handler)
     
     # And wait until valid number will be received
-    print_if_debug("W8 4 data")
+    print_if_debug_usb_driver("W8 4 data")
     while i_data_in[0] > 255:  # Wait for valid data
     #while not kbhit() and device.is_plugged():    # Wait until pressed key
         sleep(0.0000000000002)
             
-    print_if_debug("RX done")
+    print_if_debug_usb_driver("RX done")
       
     # Close device
     device.close()
     
-    print_if_debug("Device closed\n\n")
+    print_if_debug_usb_driver("Device closed\n\n")
 
     return i_data_in
 
@@ -267,9 +276,9 @@ def tx_rx_data_device_slow(data_tx_8bit, VID, PID):
     try:
         device = hid.HidDeviceFilter(vendor_id = VID,
                                      product_id = PID).get_devices()[0]
-        print_if_debug("Device found")
+        print_if_debug_usb_driver("Device found")
         device.open()
-        print_if_debug("Device opened")    
+        print_if_debug_usb_driver("Device opened")    
     
     except:
         # If not found -> exception 
@@ -286,13 +295,13 @@ def tx_rx_data_device_slow(data_tx_8bit, VID, PID):
     print("+-------------------------------")
     for i in range(8):
        buffer_tx[i+1] = data_tx_8bit[i]
-       print_if_debug("| TX: {0}".format(hex(data_tx_8bit[i])))
+       print_if_debug_usb_driver("| TX: {0}".format(hex(data_tx_8bit[i])))
     
     # Send data in buffer_tx
     out_report.set_raw_data(buffer_tx)
     out_report.send()
     
-    print_if_debug("Data send")
+    print_if_debug_usb_driver("Data send")
     
     
     # Now receive data
@@ -305,17 +314,17 @@ def tx_rx_data_device_slow(data_tx_8bit, VID, PID):
     device.set_raw_data_handler(in_sample_handler)
     
     # And wait until valid number will be received
-    print_if_debug("W8 4 data")
+    print_if_debug_usb_driver("W8 4 data")
     while i_data_in[0] > 255:  # Wait for valid data
     #while not kbhit() and device.is_plugged():    # Wait until pressed key
         sleep(0.02)
             
-    print_if_debug("RX done")
+    print_if_debug_usb_driver("RX done")
       
     # Close device
     device.close()
     
-    print_if_debug("Device closed\n\n")
+    print_if_debug_usb_driver("Device closed\n\n")
 
     return i_data_in
 
@@ -330,9 +339,9 @@ def rx_tx_data_device_slow(data_tx_8bit, VID, PID):
     try:
         device = hid.HidDeviceFilter(vendor_id = VID,
                                      product_id = PID).get_devices()[0]
-        print_if_debug("Device found")
+        print_if_debug_usb_driver("Device found")
         device.open()
-        print_if_debug("Device opened")    
+        print_if_debug_usb_driver("Device opened")    
     
     except:
         # If not found -> exception 
@@ -350,12 +359,12 @@ def rx_tx_data_device_slow(data_tx_8bit, VID, PID):
     device.set_raw_data_handler(in_sample_handler)
     
     # And wait until valid number will be received
-    print_if_debug("W8 4 data")
+    print_if_debug_usb_driver("W8 4 data")
     while i_data_in[0] > 255:  # Wait for valid data
     #while not kbhit() and device.is_plugged():    # Wait until pressed key
         sleep(0.02)
             
-    print_if_debug("RX done")
+    print_if_debug_usb_driver("RX done")
     
     
     
@@ -370,17 +379,17 @@ def rx_tx_data_device_slow(data_tx_8bit, VID, PID):
     print("+-------------------------------")
     for i in range(8):
         buffer_tx[i+1] = data_8bit[i]
-        print_if_debug("| TX: {0}".format(hex(data_8bit[i])))
+        print_if_debug_usb_driver("| TX: {0}".format(hex(data_8bit[i])))
     
     # Send data in buffer_tx
     out_report.set_raw_data(buffer_tx)
     out_report.send()
     
-    print_if_debug("Data send")
+    print_if_debug_usb_driver("Data send")
     
     # Close device
     device.close()
-    print_if_debug("Device closed\n\n")
+    print_if_debug_usb_driver("Device closed\n\n")
     
     return i_data_in
     
