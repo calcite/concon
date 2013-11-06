@@ -10,7 +10,7 @@
 # @author Martin Stejskal
 
 # Universal protocol for embedded systems
-from lnac_lib.HW_bridge_uniprot import *
+from CodecKitApp_lib.HW_bridge_uniprot import *
 
 # Time operations
 from time import sleep

@@ -1,8 +1,10 @@
+.
                       /----------------------------------+
                       | Control Application for CodecKit |
                       +----------------------------------/
 
-  This application should user allow easy setup CodecKit (Low noise audio codec)
+  This application should user allow easy setup CodecKit, witch was named as
+"Low noise audio codec".
   
   
   
