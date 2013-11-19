@@ -10,6 +10,13 @@
 #
 # @author Martin Stejskal
 #
+# Functions for higher layer:
+#  Uniprot_init() - must be called first
+#  Uniprot_close() - should be called when no communication is needed
+#                    (at the end of program)
+#
+#  Uniprot_USB_rx_data() - when want RX data
+#  Uniprot_USB_tx_data( i_tx_data ) - when want TX data
 
 
 from crc16_xmodem import *
@@ -20,11 +27,35 @@ from driver_usb import *
 # @brief "Constants"
 # @{
 # options: debug, release
-const_uniprot_VERSION = "debug"
+const_uniprot_VERSION = "release"
+#const_uniprot_VERSION = "debug"
+
 
 const_USB_VID = 0x03EB
 
 const_USB_PID = 0x204F
+
+const_UNI_MAX_NACK_RETRY_COUNT = 40
+
+const_UNI_RES_CODE_CRC_ERROR = "CRC ERROR"
+
+const_UNI_RES_CODE_ACK = "ACK"
+
+const_UNI_RES_CODE_ACK_WARNING = "ACK Warning: number of data bytes > max!"
+
+const_UNI_RES_CODE_NACK = "NACK"
+
+const_UNI_RES_CODE_RX_BUFFER_OVERFLOW = "RX BUFFER OVERFLOW"
+
+const_UNI_RES_CODE_DEVICE_BUFFER_OVERFLOW = "DEVICE BUFFER OVERFLOW"
+
+const_UNI_RES_CODE_RESET = "RESET"
+
+const_UNI_RES_CODE_UNKNOWN_COMMAND = "FATAL ERROR! UNKNOWN COMMAND. Different protocol version?"
+
+const_UNI_RES_CODE_SUCCESS = "Yes, all OK!"
+
+const_UNI_RES_CODE_DEVICE_NOT_FOUND = "Device not found. Please make sure that device is connected"
 
 const_UNI_CHAR_HEADER = ord('H')
 
@@ -39,25 +70,6 @@ const_UNI_CHAR_NACK = ord('N')
 const_UNI_CHAR_RESET = ord('R')
 
 const_UNI_CHAR_BUFFER_OVERFLOW = ord('O')
-
-
-const_UNI_RES_CODE_CRC_ERROR = "CRC ERROR"
-
-const_UNI_RES_CODE_ACK = "ACK"
-
-const_UNI_RES_CODE_NACK = "NACK"
-
-const_UNI_RES_CODE_RX_BUFFER_OVERFLOW = "RX BUFFER OVERFLOW"
-
-const_UNI_RES_CODE_DEVICE_BUFFER_OVERFLOW = "DEVICE BUFFER OVERFLOW"
-
-const_UNI_RES_CODE_RESET = "RESET"
-
-const_UNI_RES_CODE_UNKNOWN_COMMAND = "FATAL ERROR! UNKNOWN COMMAND"
-
-const_UNI_RES_CODE_SUCCESS = "Yes, all OK!"
-
-const_UNI_RES_CODE_DEVICE_NOT_FOUND = "Device not found. Please make sure that device is connected"
 ##
 # @}
 
@@ -69,6 +81,7 @@ const_UNI_RES_CODE_DEVICE_NOT_FOUND = "Device not found. Please make sure that d
 # @brief Structure for packet configuration
 class UNI_PACKET_CONFIG:
     i_rx_num_of_data_Bytes = 0
+    i_rx_max_num_of_data_Bytes = 0;
     i_rx_config_done = False
     
     i_tx_num_of_data_Bytes = 0
@@ -90,6 +103,20 @@ class UNI_STATUS:
     UNI_SR_FLAG_RX_DONE                 = False
     UNI_SR_FLAG_TX_DONE                 = False
     
+##
+# @brief Class for exceptions
+# @{
+class UniprotException_Reset_success(Exception):
+    pass
+
+class UniprotException_Device_not_found(Exception):
+    pass
+
+class UniprotException_NACK_fail(Exception):
+    pass
+
+class UniprotException_RX_buffer_overflow(Exception):
+    pass
 # @}
 
 
@@ -134,9 +161,7 @@ def Uniprot_init():
     device = usb_open_device(const_USB_VID, const_USB_PID)
     
     if(device == 404):
-        return 404
-    else:
-        return 0
+        raise UniprotException_Device_not_found("Device not found!")
 
 
 ##
@@ -146,7 +171,8 @@ def Uniprot_close():
     global const_USB_PID
     
     status = usb_close_device(const_USB_VID, const_USB_PID)
-    return status
+    if(status != 0):
+        raise UniprotException_Device_not_found("Device not found!")
 
 
 ##
@@ -174,11 +200,11 @@ def Uniprot_config_TX_packet( i_tx_num_of_data_Bytes):
 # Because in protocol algorithm need to know how many bytes should receive,
 # programmer must define how many Bytes should be received
 #
-# @param i_rx_num_of_data_Bytes Number of data Bytes
-def Uniprot_config_RX_packet( i_rx_num_of_data_Bytes):
+# @param i_rx_max_num_of_data_Bytes Number of data Bytes
+def Uniprot_config_RX_packet( i_rx_max_num_of_data_Bytes):
     global s_packet_config
     
-    s_packet_config.i_rx_num_of_data_Bytes = i_rx_num_of_data_Bytes
+    s_packet_config.i_rx_max_num_of_data_Bytes = i_rx_max_num_of_data_Bytes
     
     s_packet_config.i_rx_config_done = True
 
@@ -236,8 +262,49 @@ def Uni_process_rx_status_data(buffer_rx):
     return const_UNI_RES_CODE_UNKNOWN_COMMAND
 
 
+# @brief Send command over USB
+# @param Command character (Example: const_UNI_CHAR_ACK)
+def Uniprot_USB_tx_command( const_UNI_CHAR_CMD ):
+    global device
+    global const_UNI_CHAR_RESET
+    
+    
+    # Initialize crc16 value
+    crc16 = 0
+    
+    # Fill buffer by zeros
+    i_buffer_tx = [0x00]*8
+    
+    i_buffer_tx[0] = const_UNI_CHAR_CMD
+    
+    # Calculate CRC
+    crc16 = crc_xmodem_update(crc16, const_UNI_CHAR_CMD)
+    
+    # And load crc16 value to TX buffer
+    
+    # CRC16 - MSB
+    i_buffer_tx[1] = (crc16 >> 8) & 0xFF
+    
+    # CRC16 - LSB
+    i_buffer_tx[2] = crc16 & 0xFF
+    
+    # Check if command is reset
+    if( const_UNI_CHAR_CMD == const_UNI_CHAR_RESET):
+        # Add reset symbols
+        i_buffer_tx[3] = const_UNI_CHAR_RESET
+        i_buffer_tx[4] = const_UNI_CHAR_RESET
+        i_buffer_tx[5] = const_UNI_CHAR_RESET
+        i_buffer_tx[6] = const_UNI_CHAR_RESET
+        i_buffer_tx[7] = const_UNI_CHAR_RESET
+    
+    
+    # Buffer is ready, send data
+    usb_tx_data(device, i_buffer_tx)
+
+
 ##
 # @brief Try send data and return command code (ACK, NACK and so on)
+# @param i_tx_data: Data (array) witch will be send
 def Uniprot_USB_try_tx_data( i_tx_data ):
     global device
     global s_packet_config
@@ -361,75 +428,97 @@ def Uniprot_USB_tx_data( i_tx_data ):
     global const_UNI_RES_CODE_UNKNOWN_COMMAND
     global const_UNI_RES_CODE_DEVICE_NOT_FOUND
     
-    status = Uniprot_USB_try_tx_data( i_tx_data )
+    global const_UNI_MAX_NACK_RETRY_COUNT
+    
+    global const_UNI_CHAR_RESET
+    
+    
+    
+    try:
+        status = Uniprot_USB_try_tx_data( i_tx_data )
+    except:
+        raise UniprotException_Device_not_found("[Uniprot_USB_tx_data] Device not found! TX data\
+            failed")
+    
+    
+    # Counter for NACK command. If reach limit -> raise exception
+    i_nack_cnt = const_UNI_MAX_NACK_RETRY_COUNT
     
     # Send data again if there is NACK or CRC ERROR
     while( (status == const_UNI_RES_CODE_NACK) or \
            (status == const_UNI_RES_CODE_CRC_ERROR)
          ):
         print_if_debug_uniprot("NACK or CRC error. TX data again...")
-        status = Uniprot_USB_try_tx_data( i_tx_data )
+        
+        try:
+            status = Uniprot_USB_try_tx_data( i_tx_data )
+        except:
+            raise UniprotException_Device_not_found("[Uniprot_USB_tx_data]\
+                Device not found! TX data failed (loop)")
+        
+        
+        i_nack_cnt = i_nack_cnt -1
+        if(i_nack_cnt == 0):
+            raise UniprotException_NACK_fail("[Uniprot_USB_tx_data] NACK retry\
+                count reach limit!")
+    
     
     # Test for other options
     
-    # Test for ACK
+    # Test for ACK (standard behaviour)
     if(status == const_UNI_RES_CODE_ACK):
         return const_UNI_RES_CODE_SUCCESS
     
+    
+    # Test Exceptions
+    
     # Test for buffer overflow on device -> higher layer should solve this
     if(status == const_UNI_RES_CODE_DEVICE_BUFFER_OVERFLOW):
-        return const_UNI_RES_CODE_DEVICE_BUFFER_OVERFLOW
+        # EXCEPTION
+        raise UniprotException_RX_buffer_overflow("Device RX buffer overflow")
     
     # Test for restart or unknown command
+    
     if( (status == const_UNI_RES_CODE_RESET) or \
         (status == const_UNI_RES_CODE_UNKNOWN_COMMAND)
         ):
         # Restart device
         
+        
         # Try close device
-        Uniprot_close()
+        try:
+            Uniprot_close()
+        except:
+            # Just dummy operation - not fail
+            pass
+        # If device not found - nevermind
+        #        except:
+        #            raise UniprotException_Device_not_found("[Uniprot_USB_tx_data]\
+        #                Can not close device. Device not found")
         
         # Try initialize device again
-        if( Uniprot_init() != 0 ):
+        try:
+           Uniprot_init()
+        except:
             # If reinitialization failed
-            return const_UNI_RES_CODE_DEVICE_NOT_FOUND
-        else:
-            # Else reinitialization OK
-            return const_UNI_RES_CODE_RESET
+            # EXCEPTION
+            raise UniprotException_Device_not_found("[Uniprot_USB_tx_data] \
+                Device not found. Reinitialization failed")
+        
+        # Else reinitialization OK
+        
+        # Anyway this is not standard behaviour - higher layer should send all
+        # data again
+        # EXCEPTION 
+        raise UniprotException_Reset_success("[Uniprot_USB_tx_data] Restart occurred!")
         
         
     # Program never should goes here (critical error)
-    print("Uniprot_USB_tx_data: Unexpected internal error :( Exiting...")
+    print("[Uniprot_USB_tx_data] Internal error. Unexpected status :( Exiting...")
     exit()
 
 
-# @brief Send command over USB
-# @param Command character (Example: const_UNI_CHAR_ACK)
-def Uniprot_USB_tx_command( const_UNI_CHAR_CMD ):
-    global device
-    
-    
-    # Initialize crc16 value
-    crc16 = 0
-    
-    # Fill buffer by zeros
-    i_buffer_tx = [0x00]*8
-    
-    i_buffer_tx[0] = const_UNI_CHAR_CMD
-    
-    # Calculate CRC
-    crc16 = crc_xmodem_update(crc16, const_UNI_CHAR_CMD)
-    
-    # And load crc16 value to TX buffer
-    
-    # CRC16 - MSB
-    i_buffer_tx[1] = (crc16 >> 8) & 0xFF
-    
-    # CRC16 - LSB
-    i_buffer_tx[2] = crc16 & 0xFF
-    
-    # Buffer is ready, send data
-    usb_tx_data(device, i_buffer_tx)
+
 
 
 
@@ -446,6 +535,7 @@ def Uniprot_USB_try_rx_data():
     global const_UNI_CHAR_HEADER
     global const_UNI_CHAR_DATA
     global const_UNI_CHAR_TAIL
+    global const_UNI_RES_CODE_ACK_WARNING
     
     global i_buffer_rx
 
@@ -465,7 +555,8 @@ def Uniprot_USB_try_rx_data():
     # Set CRC to zero
     crc16 = 0
     
-    
+    # Warning if there is some catch
+    i_warning = 0 
     
     
     
@@ -481,6 +572,13 @@ def Uniprot_USB_try_rx_data():
         # Create RX buffer
         # RX buffer for data
         i_buffer_rx = [0x00]*(s_packet_config.i_rx_num_of_data_Bytes)
+        
+        # Test if received number of bytes is higher than user defined maximum.
+        # If yes, from PC side it is not a problem (there is enough memory),
+        # however program should return at least some kind of warning
+        if(s_packet_config.i_rx_num_of_data_Bytes >\
+           s_packet_config.i_rx_max_num_of_data_Bytes):
+            i_warning = 1
         
         # Calculate CRC
         crc16 = crc_xmodem_update(crc16, i_buffer_rx_8[0])
@@ -542,8 +640,11 @@ def Uniprot_USB_try_rx_data():
         # Reset i_buffer_rx_8_index
         i_buffer_rx_8_index = 0
         
-    # If all right -> return ACK -> higher layer should send ACK command
-    return const_UNI_RES_CODE_ACK
+    if(i_warning == 0):
+        # If all right -> return ACK -> higher layer should send ACK command
+        return const_UNI_RES_CODE_ACK
+    else:
+        return const_UNI_RES_CODE_ACK_WARNING
 
 
 
@@ -554,28 +655,112 @@ def Uniprot_USB_rx_data():
     global const_UNI_CHAR_ACK
     global const_UNI_CHAR_NACK
     global const_UNI_CHAR_RESET
+    global const_UNI_RES_CODE_ACK_WARNING
+    global const_UNI_RES_CODE_RESET
+    global const_UNI_MAX_NACK_RETRY_COUNT
     
     global i_buffer_rx
     
-    status = Uniprot_USB_try_rx_data();
+    try:
+        status = Uniprot_USB_try_rx_data();
+    except:
+        raise UniprotException_Device_not_found("[Uniprot_USB_rx_data]\
+            Device not found. Failed to RX data")
     print_if_debug_uniprot(">> Uniprot RX status (1): " + status)
     
+    
+    # Reset counter
+    i_nack_cnt = 0
+    
     # Test status
-    while(status != const_UNI_RES_CODE_ACK):
+    while((status != const_UNI_RES_CODE_ACK) and\
+          (status != const_UNI_RES_CODE_ACK_WARNING)):
         # While is not ACK -> something is wrong -> try to do something!
-        print_if_debug_uniprot(">> Uniprot RX status: " + status)
+        
+        print_if_debug_uniprot(">> Uniprot RX status (while): " + status)
         
         # Test for NACK -> if NACK send all data again
         if(status == const_UNI_RES_CODE_NACK):
+            # Increase NACK counter
+            i_nack_cnt = i_nack_cnt + 1
+            
+            # Test if NACK counter is const_UNI_MAX_NACK_RETRY_COUNT
+            if(i_nack_cnt > const_UNI_MAX_NACK_RETRY_COUNT):
+                # Probably OUT of sync -> reset 
+                # Set status to reset
+                status = const_UNI_RES_CODE_RESET
+                # And jump to begin of cycle
+                continue
+            
+            
+            
             # Send NACK to device
-            Uniprot_USB_tx_command(const_UNI_CHAR_NACK)
+            try:
+                Uniprot_USB_tx_command(const_UNI_CHAR_NACK)
+            except:
+                raise UniprotException_Device_not_found("[Uniprot_USB_rx_data]\
+                 Device not found. Sending NACK failed (loop)")
+            
             # And wait for data
-            status = Uniprot_USB_try_rx_data()
+            try:
+                status = Uniprot_USB_try_rx_data()
+            except:
+                raise UniprotException_Device_not_found("[Uniprot_USB_rx_data]\
+                    Device not found. Failed to RX data (loop)")
+                
+                
         elif(status == const_UNI_RES_CODE_RESET):
-            print ("Command RESET: Unfinished feature :( Exiting...")
-            exit()
+            # Try send reset and close device
+            try:
+                Uniprot_USB_tx_command(const_UNI_CHAR_RESET)
+                Uniprot_close()
+            except:
+                # Dummy operation
+                pass
+            # Try initialize device again
+            try:
+                Uniprot_init()
+            except:
+                # If reinitialization failed
+                # EXCEPTION
+                raise UniprotException_Device_not_found("[Uniprot_USB_rx_data]\
+                    Device not found. Reinitialization failed (loop)")
+            
+            # Else reinitialization OK -> raise exception
+            raise UniprotException_Reset_success("[Uniprot_USB_rx_data]\
+                Restart occurred! (loop)")
+            
+            
+    # Print at least warning if needed
+    if(status == const_UNI_RES_CODE_ACK_WARNING):
+        print("Data successfully received, but number of received Bytes was\
+         higher than defined maximum. However buffer overflow is not come.")
     
     # When ACK - previous while never run -> send ACK and return data
-    Uniprot_USB_tx_command(const_UNI_CHAR_ACK)
+    try:
+        Uniprot_USB_tx_command(const_UNI_CHAR_ACK)
+    except:
+        raise UniprotException_Device_not_found("[Uniprot_USB_rx_data]\
+            Device not found. Sending ACK failed")
    
     return i_buffer_rx
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

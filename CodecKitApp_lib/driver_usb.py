@@ -20,7 +20,7 @@ from time import sleep
 # @{
     # options: debug, release
 const_USB_DRV_VERSION = "release"
-
+#const_USB_DRV_VERSION = "debug"
 ##
 # @}
 
@@ -84,7 +84,7 @@ def usb_open_device(VID, PID):
         print_if_debug_usb_driver("Device opened")
     except:
         # If not found
-        print("Device not found. Please make sure that device is connected")
+        print_if_debug_usb_driver("Device not found. Please make sure that device is connected")
         device = 404
     return device
 
@@ -104,7 +104,8 @@ def usb_close_device(VID, PID):
         return 0
     except:
         # If not found
-        print("Device not found. Please make sure that device is connected")
+        print_if_debug_usb_driver("Device not found. Please make sure that\
+             device is connected")
         return 404
 
 
