@@ -44,7 +44,13 @@ if __name__ == '__main__':
     try:
         bridge_init()
     except BridgeException_Device_not_found as e:
-        print(e)
+        print(str(e))
+        exit()
+    except UniprotException_Device_not_found as e:
+        print(str(e))
+        exit()
+    except:
+        print("Error during initialization -> exit")
         exit()
         
     

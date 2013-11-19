@@ -6,7 +6,15 @@
 #
 # @brief: Bridge between universal protocol and hardware
 #
-# 
+# Functions for higher layer:
+#  bridge_init() - must be called first
+#  bridge_close() - should be called when no communication is needed
+#                    (at the end of program)
+#
+#  bridge_get_number_of_devices() - should be called only when number of
+#                                   devices is changed. Function bridge_init()
+#                                   call this function, so at the begin bridge
+#                                   know how many devices are under control
 #
 # @author: Martin Stejskal
 #
@@ -19,8 +27,8 @@ from compiler.ast import Print
 # @brief: "Constants"
 # @{
 # options: debug, release
-#const_HW_BRIDGE_uniprot_VERSION = "release"
-const_HW_BRIDGE_uniprot_VERSION = "debug"
+const_HW_BRIDGE_uniprot_VERSION = "release"
+#const_HW_BRIDGE_uniprot_VERSION = "debug"
 
 const_HW_BRIDGE_UNIPROT_MAX_RETRY_CNT = 10
 
@@ -60,6 +68,18 @@ class BridgeException_Error(Exception):
 # @}
 
 
+##
+# @brief Global variables
+# @{
+
+##
+# @brief Number of detected devices (-1 -> error -> so far none)
+i_num_of_devices = -1;
+# @}
+
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
 
 ##
 # @brief: Print message only if version is debug
@@ -69,35 +89,14 @@ def print_if_debug_bridge( string ):
     if const_HW_BRIDGE_uniprot_VERSION == "debug":
         print( string )
 
-
-
-
-##
-# @brief: Connect to the target device if possible
-def bridge_init():
-    try:
-        Uniprot_init()
-
-    except UniprotException_Device_not_found as e:
-        print_if_debug_bridge(e)
-        raise BridgeException_Device_not_found("[bridge_init] Device not found!")
-
-def bridge_close():
-    try:
-        Uniprot_close()
-        
-    except UniprotException_Device_not_found as e:
-        # Even if this exception occurs, program can re-initialize device
-        # if needed
-        print_if_debug_bridge(e)
-        raise BridgeException_Device_not_found("[bridge_close] Device not found!")
-
-
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
 
 ##
 # @brief: Try to get number of devices connected to target
 # 
-# @return:  
+# @return: Number of detected devices connected to target
 def bridge_get_number_of_devices():
     global const_HW_BRIDGE_UNIPROT_STATE_REQUEST_GET_NUM_OF_DEV
     global const_HW_BRIDGE_UNIPROT_MAX_RETRY_CNT
@@ -133,22 +132,22 @@ def bridge_get_number_of_devices():
             status = Uniprot_USB_tx_data( i_tx_buffer )
             
         except UniprotException_Device_not_found as e:
-            print_if_debug_bridge("[bridge_get_number_of_devices]" + e)
-            raise BridgeException_Device_not_found("Device not found. TX data")
+            print_if_debug_bridge(str(e))
+            raise BridgeException_Device_not_found("[Uniprot] " + str(e))
         
         except UniprotException_NACK_fail as e:
-            print_if_debug_bridge("[bridge_get_number_of_devices]" + e)
+            print_if_debug_bridge(str(e))
             raise BridgeException_NACK_fail("NACK fail. Different protocol?")
         
         except UniprotException_RX_buffer_overflow as e:
-            print_if_debug_bridge("[bridge_get_number_of_devices]" + e)
+            print_if_debug_bridge(str(e))
             raise BridgeException_Device_RX_buffer_overflow("It looks like\
              device is out of RAM.\
              Program can not send even 2Bytes. This is fatal problem and can\
              not be solved by this program. Sorry :(")
         
         except UniprotException_Reset_success as e:
-            print_if_debug_bridge("[bridge_get_number_of_devices]" + e)
+            print_if_debug_bridge(str(e))
             # Send data once again
             i_retry_cnt = i_retry_cnt + 1
             if(i_retry_cnt > const_HW_BRIDGE_UNIPROT_MAX_RETRY_CNT):
@@ -189,11 +188,59 @@ def bridge_get_number_of_devices():
     # Test if there is some problem on AVR side
     if(i_buffer_rx[1] == 0):
         # No problem, everything works
+        
+        i_num_of_devices = i_buffer_rx[2]
         # Send only number of devices (max. device index number)
         return i_buffer_rx[2]
     
     # Else exception - this never should happen
     raise BridgeException_Error("Error code from AVR is not 0, but it have to!")
+
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
+
+##
+# @brief: Connect to the target device if possible
+def bridge_init():
+    try:
+        Uniprot_init()
+        bridge_get_number_of_devices()
+
+    except UniprotException_Device_not_found as e:
+        print_if_debug_bridge(str(e))
+        raise BridgeException_Device_not_found("[Uniprot init] " + str(e))
+        
+        
+    except BridgeException_Device_not_found as e:
+        print_if_debug_bridge(str(e))
+        raise UniprotException_Device_not_found("[Get num of dev] " + str(e))
+        
+    except BridgeException_Device_RX_buffer_overflow as e:
+        print_if_debug_bridge(str(e))
+        raise BridgeException_Device_RX_buffer_overflow("[Get num of dev] "
+                                                         + str(e))
+        
+    except BridgeException_NACK_fail as e:
+        print_if_debug_bridge(str(e))
+        raise BridgeException_NACK_fail("[Get num of dev] " + str(e))
+    
+    except BridgeException_Reset_fail as e:
+        print_if_debug_bridge(str(e))
+        raise BridgeException_Reset_fail("[Get num of dev] " + str(e))
+
+def bridge_close():
+    try:
+        Uniprot_close()
+        
+    except UniprotException_Device_not_found as e:
+        # Even if this exception occurs, program can re-initialize device
+        # if needed
+        print_if_debug_bridge(e)
+        raise BridgeException_Device_not_found("[Uniprot close] " + str(e))
+
+
+
 
 
 

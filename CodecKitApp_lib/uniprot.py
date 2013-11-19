@@ -437,8 +437,8 @@ def Uniprot_USB_tx_data( i_tx_data ):
     try:
         status = Uniprot_USB_try_tx_data( i_tx_data )
     except:
-        raise UniprotException_Device_not_found("[Uniprot_USB_tx_data] Device not found! TX data\
-            failed")
+        raise UniprotException_Device_not_found("\n >Device not found! TX data"
+                                                " failed")
     
     
     # Counter for NACK command. If reach limit -> raise exception
