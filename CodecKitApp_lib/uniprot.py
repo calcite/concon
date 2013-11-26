@@ -78,7 +78,7 @@ const_UNI_CHAR_BUFFER_OVERFLOW = ord('O')
 # @{ Structures/Classes
 
 ##
-# @brief Structure for packet configuration
+# @brief Static structure for packet configuration
 class UNI_PACKET_CONFIG:
     i_rx_num_of_data_Bytes = 0
     i_rx_max_num_of_data_Bytes = 0;
@@ -88,7 +88,7 @@ class UNI_PACKET_CONFIG:
     i_tx_config_done = False
 
 ##
-# @brief Structure for status (error codes and flags)
+# @brief Static structure for status (error codes and flags)
 class UNI_STATUS:
     UNI_SR_ERROR_FLAG_TX_NOT_CONFIGURED = False
     UNI_SR_ERROR_FLAG_RX_NOT_CONFIGURED = False
@@ -161,7 +161,7 @@ def Uniprot_init():
     device = usb_open_device(const_USB_VID, const_USB_PID)
     
     if(device == 404):
-        raise UniprotException_Device_not_found("Device not found!")
+        raise UniprotException_Device_not_found(" Device not found!")
 
 
 ##
@@ -172,7 +172,7 @@ def Uniprot_close():
     
     status = usb_close_device(const_USB_VID, const_USB_PID)
     if(status != 0):
-        raise UniprotException_Device_not_found("Device not found!")
+        raise UniprotException_Device_not_found(" Device not found!")
 
 
 ##
@@ -437,8 +437,8 @@ def Uniprot_USB_tx_data( i_tx_data ):
     try:
         status = Uniprot_USB_try_tx_data( i_tx_data )
     except:
-        raise UniprotException_Device_not_found("\n >Device not found! TX data"
-                                                " failed")
+        raise UniprotException_Device_not_found("[Try TX data]"
+                                                " Device not found!")
     
     
     # Counter for NACK command. If reach limit -> raise exception
@@ -453,14 +453,13 @@ def Uniprot_USB_tx_data( i_tx_data ):
         try:
             status = Uniprot_USB_try_tx_data( i_tx_data )
         except:
-            raise UniprotException_Device_not_found("[Uniprot_USB_tx_data]\
-                Device not found! TX data failed (loop)")
+            raise UniprotException_Device_not_found("[Try TX data (loop)]"
+                                                    " Device not found!")
         
         
         i_nack_cnt = i_nack_cnt -1
         if(i_nack_cnt == 0):
-            raise UniprotException_NACK_fail("[Uniprot_USB_tx_data] NACK retry\
-                count reach limit!")
+            raise UniprotException_NACK_fail(" NACK retry count reach limit!")
     
     
     # Test for other options
@@ -475,7 +474,10 @@ def Uniprot_USB_tx_data( i_tx_data ):
     # Test for buffer overflow on device -> higher layer should solve this
     if(status == const_UNI_RES_CODE_DEVICE_BUFFER_OVERFLOW):
         # EXCEPTION
-        raise UniprotException_RX_buffer_overflow("Device RX buffer overflow")
+        raise UniprotException_RX_buffer_overflow(" Device RX buffer overflow"
+            "It looks like device is out of RAM."
+            "Program can not send even 2Bytes. This is fatal problem and can"
+            "not be solved by this program. Sorry :(")
     
     # Test for restart or unknown command
     
@@ -492,29 +494,27 @@ def Uniprot_USB_tx_data( i_tx_data ):
             # Just dummy operation - not fail
             pass
         # If device not found - nevermind
-        #        except:
-        #            raise UniprotException_Device_not_found("[Uniprot_USB_tx_data]\
-        #                Can not close device. Device not found")
         
         # Try initialize device again
         try:
            Uniprot_init()
-        except:
+        except UniprotException_Device_not_found as e:
             # If reinitialization failed
             # EXCEPTION
-            raise UniprotException_Device_not_found("[Uniprot_USB_tx_data] \
-                Device not found. Reinitialization failed")
+            raise UniprotException_Device_not_found("[Re-init failed]"
+                                                     + str(e))
         
         # Else reinitialization OK
         
         # Anyway this is not standard behaviour - higher layer should send all
         # data again
         # EXCEPTION 
-        raise UniprotException_Reset_success("[Uniprot_USB_tx_data] Restart occurred!")
+        raise UniprotException_Reset_success(" Restart occurred!")
         
         
     # Program never should goes here (critical error)
-    print("[Uniprot_USB_tx_data] Internal error. Unexpected status :( Exiting...")
+    print("[Uniprot_USB_tx_data] Internal error. Unexpected status :("
+          " Exiting...")
     exit()
 
 
@@ -664,9 +664,13 @@ def Uniprot_USB_rx_data():
     try:
         status = Uniprot_USB_try_rx_data();
     except:
-        raise UniprotException_Device_not_found("[Uniprot_USB_rx_data]\
-            Device not found. Failed to RX data")
-    print_if_debug_uniprot(">> Uniprot RX status (1): " + status)
+        raise UniprotException_Device_not_found("[Try RX data]"
+                                                " Device not found!")
+    
+    if(const_uniprot_VERSION == "debug"):
+        print(">> Uniprot RX status (1): " + status + "\n RX Data:")
+        print(i_buffer_rx)
+        print("----------")
     
     
     # Reset counter
@@ -698,15 +702,15 @@ def Uniprot_USB_rx_data():
             try:
                 Uniprot_USB_tx_command(const_UNI_CHAR_NACK)
             except:
-                raise UniprotException_Device_not_found("[Uniprot_USB_rx_data]\
-                 Device not found. Sending NACK failed (loop)")
+                raise UniprotException_Device_not_found(
+                                "[TX CMD (loop)] Device not found!")
             
             # And wait for data
             try:
                 status = Uniprot_USB_try_rx_data()
             except:
-                raise UniprotException_Device_not_found("[Uniprot_USB_rx_data]\
-                    Device not found. Failed to RX data (loop)")
+                raise UniprotException_Device_not_found(
+                                "[Try RX data (loop)] Device not found!")
                 
                 
         elif(status == const_UNI_RES_CODE_RESET):
@@ -720,15 +724,14 @@ def Uniprot_USB_rx_data():
             # Try initialize device again
             try:
                 Uniprot_init()
-            except:
+            except UniprotException_Device_not_found as e:
                 # If reinitialization failed
                 # EXCEPTION
-                raise UniprotException_Device_not_found("[Uniprot_USB_rx_data]\
-                    Device not found. Reinitialization failed (loop)")
+                raise UniprotException_Device_not_found(
+                            "[Re-init (loop)]" + str(e))
             
             # Else reinitialization OK -> raise exception
-            raise UniprotException_Reset_success("[Uniprot_USB_rx_data]\
-                Restart occurred! (loop)")
+            raise UniprotException_Reset_success(" Restart occurred! (loop)")
             
             
     # Print at least warning if needed
@@ -740,8 +743,8 @@ def Uniprot_USB_rx_data():
     try:
         Uniprot_USB_tx_command(const_UNI_CHAR_ACK)
     except:
-        raise UniprotException_Device_not_found("[Uniprot_USB_rx_data]\
-            Device not found. Sending ACK failed")
+        raise UniprotException_Device_not_found(
+                        "[TX command] Device not found!")
    
     return i_buffer_rx
 
