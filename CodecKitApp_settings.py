@@ -29,57 +29,26 @@ if __name__ == '__main__':
     
     print("[LNAC settings] Alive!")
     
-    """
-    try:
-        #Uniprot_USB_tx_command(ord('N'))
-        Uniprot_USB_tx_data( 5)
-    except UniException as e:
-        print(e)
-        print("Exception")
-        exit()
-    print("ALL OK :=)")
-    exit()
-    """
     
-    try:
-        bridge_init()
-    except BridgeException_Device_not_found as e:
-        print("[Bridge init] " + str(e))
-        exit()
-    except:
-        print("Unknown error during initialization -> exit")
-        exit()
-        
     
-    """
-    try:
-        print("Max dev index: " + str(bridge_get_number_of_devices()))
-    except:
-        print("Exception :(")
-        exit() 
-        """
-    try:
-        metadata = BRIDGE_METADATA()
-        metadata = bridge_get_metadata(0)
-    except:
-        print("Get metadata fail!")
-        exit()
+    # Bridge init
+    bridge = Bridge()
     
-    print("Desc: " + str(metadata.s_descriptor))
-    print("DID: " + str(metadata.i_Device_ID))
-    print("MAX CMD: " + str(metadata.i_MAX_CMD_ID))
-    print("Serial number: " + str(metadata.i_serial))
-    print("_________________________________________")
+    print("MAX DID: " + str(bridge.get_max_Device_ID()))
     
-#    for i in i_buffer_rx:
-#        print("RXD {0} | {1} | {2}".format(hex(i), str(unichr(i)), i ))
+    # Print metadata
+    print(bridge.device_metadata[0])
+    print(bridge.device_metadata[1])
     
     
     
     
-    bridge_close()
+    
+    bridge.close()
     print("[LNAC settings] Bye")
     
     exit()
 
 
+#    for i in i_buffer_rx:
+#        print("RXD {0} | {1} | {2}".format(hex(i), str(unichr(i)), i ))
