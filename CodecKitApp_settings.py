@@ -18,7 +18,23 @@ from time import sleep
 # Keyboard events (only debug for now)
 #from msvcrt import kbhit
 
-
+class GET_SETTINGS_STRUCT:
+        def __init__(self):
+            self.in_type = -1
+            self.in_min = -1
+            self.in_max = -1
+            self.out_type = -1
+            self.out_min = -1
+            self.out_max = -1
+            self.out_value = -1
+            self.descriptor = ""
+        def __str__(self):
+            return "Get settings>\n IN TYPE: {0}\n IN MIN: {1}\n IN MAX: \n"\
+                "{2}\n OUT TYPE: {3}\n OUT MIN: {4}\n OUT MAX: {5}\n "\
+                "OUT VALUE: {7}\n DESCRIPTOR: {8}\n<---------------------->"\
+                .format(self.in_type,  self.in_min,  self.in_max,\
+                        self.out_type, self.out_min, self.out_max,\
+                        self.out_value, self.descriptor)
 
 ##
 # @brief Main function
@@ -31,20 +47,57 @@ if __name__ == '__main__':
     
     
     
+    
+    """
+    one = GET_SETTINGS_STRUCT()
+    
+    one = {}
+    one[device_id] = []
+    one[device_id].append(GET_SETTINGS_STRUCT())
+    one[device_id+1] = GET_SETTINGS_STRUCT()
+    
+    one[0][setting_index].i_in_type
+    
+    arr2 = [[0 for x in range(4)] for x in range(7)]
+    
+    print(arr2)
+    """
+    
     # Bridge init
     bridge = Bridge()
     
-    print("MAX DID: " + str(bridge.get_max_Device_ID()))
+    
+    print("\nMAX DID: " + str(bridge.get_max_Device_ID()) + "\n")
     
     # Print metadata
     print(bridge.device_metadata[0])
     print(bridge.device_metadata[1])
     
     
+    try:
+        setting = bridge.get_setting_from_device(0, 6)
+    except BridgeException_Error as e:
+        print(str(e))
+    
+    
+    print(setting)
     
     
     
-    bridge.close()
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    try:
+        bridge.close()
+    except:
+        pass
     print("[LNAC settings] Bye")
     
     exit()

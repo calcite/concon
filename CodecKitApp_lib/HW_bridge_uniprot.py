@@ -13,9 +13,9 @@
 #  # Get number of max Device_ID (used index)
 #  max_DID = bridge.get_max_Device_ID()
 #
-#  # Get downloaded metadata - if invalid Device ID is given, then return 404
-#  # else return valid metadata
-#  bridge.get_metadata(2)
+#  # Get downloaded metadata. User can select device thru index. Maximum index
+#  # is max_DID. 
+#  print(bridge.get_metadata[max_DID])
 #
 #  bridge.close()  # should be called when no communication is needed
 #                  # (at the end of program)
@@ -84,22 +84,61 @@ class Bridge():
         GD_INCORRECT_CMD_ID =          3
         GD_CMD_ID_NOT_EQUAL_IN_FLASH = 4
         GD_INCORRECT_DEVICE_ID =       5
+    
+    # This definitions must be same on AVR too!
+    class DATA_TYPES:
+        void_type =                     0
+        
+        char_type =                     1
+        
+        int_type =                      2
+        int8_type =                     3
+        int16_type =                    4
+        int32_type =                    5
+        
+        uint_type =                     6
+        uint8_type =                    7
+        uint16_type =                   8
+        uint32_type =                   9
+        
+        float_type =                    10
+    
+    
     ##
     # @}
     
+    
+    # Structure for get/set setting functions
+    class SETTING_STRUCT:
+        def __init__(self):
+            self.in_type = -1
+            self.in_min = -1
+            self.in_max = -1
+            self.out_type = -1
+            self.out_min = -1
+            self.out_max = -1
+            self.out_value = -1
+            self.descriptor = ""
+        def __str__(self):
+            return "Get settings>\n IN TYPE: {0}\n IN MIN: {1}\n IN MAX: "\
+                "{2}\n OUT TYPE: {3}\n OUT MIN: {4}\n OUT MAX: {5}\n "\
+                "OUT VALUE: {6}\n DESCRIPTOR: {7}\n<---------------------->"\
+                .format(self.in_type,  self.in_min,  self.in_max,\
+                        self.out_type, self.out_min, self.out_max,\
+                        self.out_value, self.descriptor)
     
     
     # @brief Dynamic structure for metadata. Default should be invalid values
     class BRIDGE_METADATA:
         def __init__(self):
-            self.i_MAX_CMD_ID = -1
-            self.i_serial = -1
-            self.s_descriptor = ""
+            self.MAX_CMD_ID = -1
+            self.serial = -1
+            self.descriptor = ""
             
         def __str__(self):
             return "Bridge>\n {0}\n Serial: {1}\n Max CMD ID: {2}\n"\
                     "<------------------------>"\
-                .format(self.s_descriptor, self.i_serial, self.i_MAX_CMD_ID)
+                .format(self.descriptor, self.serial, self.MAX_CMD_ID)
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
@@ -123,26 +162,26 @@ class Bridge():
             
         except UniprotException_Device_not_found as e:
             Bridge.print_if_debug(str(e))
-            raise BridgeException_Device_not_found("[Uniprot init] " +
+            raise BridgeException_Device_not_found("[Uniprot init]" +
                                                     str(e))
         
         except BridgeException_Device_not_found as e:
             Bridge.print_if_debug(str(e))
-            raise UniprotException_Device_not_found("[Get num of dev] " +
+            raise UniprotException_Device_not_found("[Get num of dev]" +
                                                      str(e))
         
         except BridgeException_Device_RX_buffer_overflow as e:
             Bridge.print_if_debug(str(e))
-            raise BridgeException_Device_RX_buffer_overflow("[Get num of dev] "
+            raise BridgeException_Device_RX_buffer_overflow("[Get num of dev]"
                                                          + str(e))
         
         except BridgeException_NACK_fail as e:
             Bridge.print_if_debug(str(e))
-            raise BridgeException_NACK_fail("[Get num of dev] " + str(e))
+            raise BridgeException_NACK_fail("[Get num of dev]" + str(e))
         
         except BridgeException_Reset_fail as e:
             Bridge.print_if_debug(str(e))
-            raise BridgeException_Reset_fail("[Get num of dev] " + str(e))
+            raise BridgeException_Reset_fail("[Get num of dev]" + str(e))
         
         # Try to get all metadata and save them to array
         self.s_metadata = []
@@ -151,8 +190,21 @@ class Bridge():
                 self.s_metadata.append(self.get_metadata_from_device(i))
             except BridgeException_Device_not_found as e:
                 Bridge.print_if_debug(str(e))
-                raise UniprotException_Device_not_found("[Get metadata] " +
+                raise UniprotException_Device_not_found("[Get metadata]" +
                                                      str(e))
+                
+            except BridgeException_Device_RX_buffer_overflow as e:
+                Bridge.print_if_debug(str(e))
+                raise BridgeException_Device_RX_buffer_overflow(
+                            "[Get metadata]" + str(e))
+                
+            except BridgeException_NACK_fail as e:
+                Bridge.print_if_debug(str(e))
+                raise BridgeException_NACK_fail("[Get metadata]" + str(e))
+            
+            except BridgeException_Reset_fail as e:
+                Bridge.print_if_debug(str(e))
+                raise BridgeException_Reset_fail("[Get metadata]" + str(e))
         
         
         
@@ -294,14 +346,14 @@ class Bridge():
         # Check if Device ID is valid
         if(i_Device_ID > self.i_num_of_devices):
             message = " Invalid Device ID. "
-            if(i_num_of_devices < 0):
+            if(self.i_num_of_devices < 0):
                 message = message + "It looks that bridge was not" +\
                     " initialized. Please call function Uniprot_init() and"+\
                     " check all exceptions"
             else:
                 # It look that bridge was initialized, but Device ID is invalid
                 message = message + "Maximum Device ID is " +\
-                                str(Bridge.i_num_of_devices) + " ."
+                                str(self.i_num_of_devices) + " ."
             
             raise BridgeException_Error(message)
         
@@ -386,7 +438,7 @@ class Bridge():
                 # Else no exception -> break while
                 break
         
-        # Test if send Device ID is same
+        # Test if received Device ID is same
         if(i_buffer_rx[0] != i_Device_ID):
             # This should not happen.
             message = " Got different Device ID (" + str(i_buffer_rx[0]) +\
@@ -415,22 +467,22 @@ class Bridge():
         i_index = 2
         
         # Load MAX CMD ID
-        rx_metadata.i_MAX_CMD_ID = (i_buffer_rx[i_index])<<8
+        rx_metadata.MAX_CMD_ID = (i_buffer_rx[i_index])<<8
         i_index = i_index+1
-        rx_metadata.i_MAX_CMD_ID = rx_metadata.i_MAX_CMD_ID + i_buffer_rx[i_index]
+        rx_metadata.MAX_CMD_ID = rx_metadata.MAX_CMD_ID + i_buffer_rx[i_index]
         i_index = i_index+1
         
         # Load serial number
-        rx_metadata.i_serial = i_buffer_rx[i_index]
+        rx_metadata.serial = i_buffer_rx[i_index]
         i_index = i_index+1
         
         # Clear descriptor
-        rx_metadata.s_descriptor = ""
+        rx_metadata.descriptor = ""
         
         # Load descriptor
         while(i_buffer_rx[i_index] != 0x00):
             # Add character to descriptor
-            rx_metadata.s_descriptor =   rx_metadata.s_descriptor +\
+            rx_metadata.descriptor =   rx_metadata.descriptor +\
                                          str(unichr(i_buffer_rx[i_index]))
             
             # Increase index
@@ -439,6 +491,252 @@ class Bridge():
             
         # return metadata as object
         return rx_metadata
+    
+    
+    
+    
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#    
+    # Try to get setting (one) from device
+    def get_setting_from_device(self, i_Device_ID, i_CMD_ID):
+        
+        # Check if Device ID is valid
+        if(i_Device_ID > self.i_num_of_devices):
+            message = " Invalid Device ID. "
+            if(self.i_num_of_devices < 0):
+                message = message + "It looks that bridge was not"\
+                    " initialized. Please call function Uniprot_init() and"+\
+                    " check all exceptions"
+            else:
+                # It look that bridge was initialized, but Device ID is invalid
+                message = message + "Maximum Device ID is " +\
+                                str(self.i_num_of_devices) + " ."
+            
+            raise BridgeException_Error(message)
+        
+        if(i_Device_ID < 0):
+            raise BridgeException_Error("Invalid i_Device_ID. Can not be"
+                                        " lower than 0")
+        
+        # Check i_CMD_ID
+        if((i_CMD_ID > self.device_metadata[i_Device_ID].MAX_CMD_ID) or\
+           (i_CMD_ID < 0)):
+            raise BridgeException_Error(" Invalid CMD ID (input parameter: " +\
+                        str(i_CMD_ID) + ").\n Minimum CMD ID is 0. Maximum CMD"
+                        " ID for device " + str(i_Device_ID) + " is " +\
+                        str(self.device_metadata[i_Device_ID].MAX_CMD_ID))
+        
+        # Fill TX buffer by zeros
+        i_tx_buffer = [0x00]*4
+        # Device ID
+        i_tx_buffer[0] = i_Device_ID
+        # Bridge command (request ID)
+        i_tx_buffer[1] = Bridge.STATE_REQUEST_GET_SETTINGS
+        # CMD ID - must be split into two Bytes
+        i_tx_buffer[2] = (i_CMD_ID >> 8) & 0xFF
+        i_tx_buffer[3] = (i_CMD_ID)      & 0xFF
+        
+        
+        
+        # Configure TX packet
+        Uniprot_config_TX_packet( 4 )
+        
+        # Configure RX packet
+        Uniprot_config_RX_packet( Bridge.MAX_RX_BUFFER_BYTES )
+        
+        # Reset counter
+        i_retry_cnt = 0
+        
+        while(1):
+            try:
+                # Try to send request
+                status = Uniprot_USB_tx_data( i_tx_buffer )
+            except UniprotException_Device_not_found as e:
+                Bridge.print_if_debug(str(e))
+                raise BridgeException_Device_not_found("[Uniprot TX data] "
+                                                       + str(e))
+                
+            except UniprotException_NACK_fail as e:
+                Bridge.print_if_debug(str(e))
+                raise BridgeException_NACK_fail("[Uniprot TX data]" + str(e))
+        
+            except UniprotException_RX_buffer_overflow as e:
+                Bridge.print_if_debug(str(e))
+                raise BridgeException_Device_RX_buffer_overflow("[Uniprot"
+                                                                " TX data]"
+                                                             + str(e))
+                
+            except UniprotException_Reset_success as e:
+                Bridge.print_if_debug(str(e))
+                # Send data once again
+                i_retry_cnt = i_retry_cnt + 1
+                if(i_retry_cnt > MAX_RETRY_CNT):
+                    Bridge.print_if_debug("[get_setting_from_device]"
+                                          " Retry limit reached")
+                    raise BridgeException_Reset_fail(" Reset retry count reach"
+                                                     "maximum (TX data).")
+            else:
+                # Else TX data without exception -> break while
+                break
+            
+            
+        Bridge.print_if_debug("Get setting: " + status)
+        
+        # RX data (one setting)
+        while(1):
+            try:
+                i_buffer_rx = Uniprot_USB_rx_data()
+                
+            except UniprotException_Device_not_found as e:
+                Bridge.print_if_debug("[get_setting_from_device]" + e)
+                raise BridgeException_Device_not_found("[Uniprot RX data]"
+                                                       + str(e))
+            except UniprotException_Reset_success as e:
+                Bridge.print_if_debug("[get_setting_from_device]" + e)
+                # Send data once again
+                i_retry_cnt = i_retry_cnt + 1
+                if(i_retry_cnt > MAX_RETRY_CNT):
+                    Bridge.print_if_debug("[get_setting_from_device]"
+                                          " Retry limit reached")
+                    raise BridgeException_Reset_fail(" Reset retry count"
+                                            " reach maximum (RX data).")
+            else:
+                # Else no exception -> break while
+                break
+            
+        Bridge.print_if_debug("Get setting: RX data OK")
+        
+        # Test if received DID is same
+        if(i_buffer_rx[0] != i_Device_ID):
+            # This should not happen.
+            message = " Got different Device ID (" + str(i_buffer_rx[0]) +\
+               "), but expected " + str(i_Device_ID) + " . This is failure of"\
+               "communication protocol."
+            raise BridgeException_Error(message)
+            
+        # Check return code - should be 0, else there is bug in protocol
+        if(i_buffer_rx[1] != 0):
+            Bridge.print_if_debug("[get_setting_from_device] Return code: " +
+                                  str(i_buffer_rx[1]))
+            # This never happen. Only one thing that may fail is wrong Device
+            # ID, but this is checked before request is send. It can fail only
+            # when whole protocol fail -> developer should fix this
+            message = "Device returned code: " + str(i_buffer_rx[1]) +\
+                    ". Please refer to source code what error code means."\
+                    " However this should not happen. It is seems that there"\
+                    " is some problem when transmitting or receiving data."
+            raise BridgeException_Error(message)
+            
+        # Check CMD ID
+        if(((i_buffer_rx[2]<<8) + i_buffer_rx[3]) != i_CMD_ID):
+            Bridge.print_if_debug("[get_setting_from_device]"
+                                      " TX CMD ID: " + str(i_CMD_ID) + 
+                                      "RX CMD ID: " + str(i_buffer_rx[2]))
+            message = "Device returned different CMD ID (" +\
+                    str((i_buffer_rx[2]<<8) + i_buffer_rx[3]) +\
+                    "), but expected " + \
+                    str(i_CMD_ID) + ". This means failure on protocol layer."
+            raise BridgeException_Error(message)
+            
+        # Else all seems to be OK -> fill structure
+        rx_config = Bridge.SETTING_STRUCT()
+        
+        # Index for rx_buffer - begin at 4
+        i_index_rx_buffer = 4
+        
+        # Load data to struct (load byte by byte)
+        
+        # IN TYPE
+        rx_config.in_type = i_buffer_rx[i_index_rx_buffer]
+        i_index_rx_buffer = i_index_rx_buffer +1
+        
+        
+        # IN MIN
+        rx_config.in_min =  (i_buffer_rx[i_index_rx_buffer]<<24)
+        i_index_rx_buffer = i_index_rx_buffer +1
+        rx_config.in_min =  rx_config.in_min +\
+                            (i_buffer_rx[i_index_rx_buffer]<<16)
+        i_index_rx_buffer = i_index_rx_buffer +1
+        rx_config.in_min =  rx_config.in_min +\
+                            (i_buffer_rx[i_index_rx_buffer]<<8)
+        i_index_rx_buffer = i_index_rx_buffer +1
+        rx_config.in_min =  rx_config.in_min +\
+                            (i_buffer_rx[i_index_rx_buffer])
+        i_index_rx_buffer = i_index_rx_buffer +1
+        
+        
+        # IN MAX
+        rx_config.in_max =  (i_buffer_rx[i_index_rx_buffer]<<24)
+        i_index_rx_buffer = i_index_rx_buffer +1
+        rx_config.in_max =  rx_config.in_max +\
+                            (i_buffer_rx[i_index_rx_buffer]<<16)
+        i_index_rx_buffer = i_index_rx_buffer +1
+        rx_config.in_max =  rx_config.in_max +\
+                            (i_buffer_rx[i_index_rx_buffer]<<8)
+        i_index_rx_buffer = i_index_rx_buffer +1
+        rx_config.in_max =  rx_config.in_max +\
+                            (i_buffer_rx[i_index_rx_buffer])
+        i_index_rx_buffer = i_index_rx_buffer +1
+        
+        
+        # OUT TYPE
+        rx_config.out_type = i_buffer_rx[i_index_rx_buffer]
+        i_index_rx_buffer = i_index_rx_buffer +1
+        
+        
+        # OUT MIN
+        rx_config.out_min = (i_buffer_rx[i_index_rx_buffer]<<24)
+        i_index_rx_buffer = i_index_rx_buffer +1
+        rx_config.out_min = rx_config.out_min +\
+                            (i_buffer_rx[i_index_rx_buffer]<<16)
+        i_index_rx_buffer = i_index_rx_buffer +1
+        rx_config.out_min = rx_config.out_min +\
+                            (i_buffer_rx[i_index_rx_buffer]<<8)
+        i_index_rx_buffer = i_index_rx_buffer +1
+        rx_config.out_min = rx_config.out_min +\
+                            (i_buffer_rx[i_index_rx_buffer])
+        i_index_rx_buffer = i_index_rx_buffer +1
+        
+        
+        # OUT MAX
+        rx_config.out_max = (i_buffer_rx[i_index_rx_buffer]<<24)
+        i_index_rx_buffer = i_index_rx_buffer +1
+        rx_config.out_max = rx_config.out_max +\
+                            (i_buffer_rx[i_index_rx_buffer]<<16)
+        i_index_rx_buffer = i_index_rx_buffer +1
+        rx_config.out_max = rx_config.out_max +\
+                            (i_buffer_rx[i_index_rx_buffer]<<8)
+        i_index_rx_buffer = i_index_rx_buffer +1
+        rx_config.out_max = rx_config.out_max +\
+                            i_buffer_rx[i_index_rx_buffer]
+        i_index_rx_buffer = i_index_rx_buffer +1
+        
+        
+        # OUT VALUE
+        rx_config.out_value =   (i_buffer_rx[i_index_rx_buffer]<<24)
+        i_index_rx_buffer   =   i_index_rx_buffer +1
+        rx_config.out_value =   rx_config.out_value +\
+                                (i_buffer_rx[i_index_rx_buffer]<<16)
+        i_index_rx_buffer   =   i_index_rx_buffer +1
+        rx_config.out_value =   rx_config.out_value +\
+                                (i_buffer_rx[i_index_rx_buffer]<<8)
+        i_index_rx_buffer   =   i_index_rx_buffer +1
+        rx_config.out_value =   rx_config.out_value +\
+                                i_buffer_rx[i_index_rx_buffer]
+        i_index_rx_buffer   =   i_index_rx_buffer +1
+        
+        
+        # And get descriptor - do not know length
+        while(i_buffer_rx[i_index_rx_buffer] != 0x00):
+            # Add character to string
+            rx_config.descriptor = rx_config.descriptor + \
+                            str(unichr(i_buffer_rx[i_index_rx_buffer]))
+            i_index_rx_buffer = i_index_rx_buffer +1
+        
+        
+        
+        return rx_config
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
