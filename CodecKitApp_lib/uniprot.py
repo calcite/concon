@@ -6,7 +6,7 @@
 #
 # @brief Universal protocol designed for 8 bit embedded systems
 #
-# 
+# Slowvly remove print_if_debug and replace by logger (logging) 
 #
 # @author Martin Stejskal
 #
@@ -18,10 +18,23 @@
 #  Uniprot_USB_rx_data() - when want RX data
 #  Uniprot_USB_tx_data( i_tx_data ) - when want TX data
 
+##
+# @brief For logging events
+import logging
+import logging.config
+
 
 from crc16_xmodem import *
 from driver_usb import *
 
+
+
+## Load configure file for logging
+logging.config.fileConfig('config/logging_global.conf', None, False)
+
+##
+# @brief Get logging variable
+logger = logging.getLogger('Uniprot <---> USB')
 
 ##
 # @brief "Constants"
@@ -161,7 +174,7 @@ def Uniprot_init():
     device = usb_open_device(const_USB_VID, const_USB_PID)
     
     if(device == 404):
-        raise UniprotException_Device_not_found(" Device not found!")
+        raise UniprotException_Device_not_found(" Device not found!\n")
 
 
 ##
@@ -172,7 +185,7 @@ def Uniprot_close():
     
     status = usb_close_device(const_USB_VID, const_USB_PID)
     if(status != 0):
-        raise UniprotException_Device_not_found(" Device not found!")
+        raise UniprotException_Device_not_found(" Device not found!\n")
 
 
 ##
@@ -396,11 +409,18 @@ def Uniprot_USB_try_tx_data( i_tx_data ):
         if(i_tx_remain_data_Bytes <= 0):
             # Send last bytes
             usb_tx_data(device, i_buffer_tx)
+            
+            logger.debug("[Uniprot_USB_try_tx_data] All data send. Waiting for"
+                         " response from device\n")
             # Get command
             i_buffer_rx = usb_rx_data(device)
+            logger.debug("[Uniprot_USB_try_tx_data] Response received:\n" +
+                         str(i_buffer_rx) + "\n")
 
             status = Uni_process_rx_status_data(i_buffer_rx)
-            print_if_debug_uniprot(status)
+            
+            logger.debug("[Uniprot_USB_try_tx_data] Response status: " + 
+                         str(status) + "\n")
             # Return command status (ACK, NACK and so on)
             return status
         else:
@@ -437,8 +457,9 @@ def Uniprot_USB_tx_data( i_tx_data ):
     try:
         status = Uniprot_USB_try_tx_data( i_tx_data )
     except:
-        raise UniprotException_Device_not_found("[Try TX data]"
-                                                " Device not found!")
+        message = "[Try TX data] Device not found!\n"
+        logger.error("[Uniprot_USB_tx_data]" + message)
+        raise UniprotException_Device_not_found(message)
     
     
     # Counter for NACK command. If reach limit -> raise exception
@@ -448,18 +469,24 @@ def Uniprot_USB_tx_data( i_tx_data ):
     while( (status == const_UNI_RES_CODE_NACK) or \
            (status == const_UNI_RES_CODE_CRC_ERROR)
          ):
-        print_if_debug_uniprot("NACK or CRC error. TX data again...")
+        logger.warn("[Uniprot_USB_tx_data]"
+                    " NACK or CRC error. TX data again... (" +
+                    str(const_UNI_MAX_NACK_RETRY_COUNT - i_nack_cnt) +
+                    ").")
         
         try:
             status = Uniprot_USB_try_tx_data( i_tx_data )
         except:
-            raise UniprotException_Device_not_found("[Try TX data (loop)]"
-                                                    " Device not found!")
+            raise UniprotException_Device_not_found("[Try TX data]"
+                                        " Device not found! (loop)\n")
         
         
         i_nack_cnt = i_nack_cnt -1
         if(i_nack_cnt == 0):
-            raise UniprotException_NACK_fail(" NACK retry count reach limit!")
+            logger.error("[Uniprot_USB_tx_data]"
+                          " Retry count reach limit! (loop)\n"
+                         )
+            raise UniprotException_NACK_fail(" NACK retry count reach limit!\n")
     
     
     # Test for other options
@@ -474,10 +501,12 @@ def Uniprot_USB_tx_data( i_tx_data ):
     # Test for buffer overflow on device -> higher layer should solve this
     if(status == const_UNI_RES_CODE_DEVICE_BUFFER_OVERFLOW):
         # EXCEPTION
-        raise UniprotException_RX_buffer_overflow(" Device RX buffer overflow"
-            "It looks like device is out of RAM."
-            "Program can not send even 2Bytes. This is fatal problem and can"
-            "not be solved by this program. Sorry :(")
+        message = " Device RX buffer overflow"\
+            "It looks like device is out of RAM."\
+            "Program can not send even 2Bytes. This is fatal problem and can"\
+            "not be solved by this program. Sorry :(\n"
+        logger.critical("[Uniprot_USB_tx_data]" + message)
+        raise UniprotException_RX_buffer_overflow(message)
     
     # Test for restart or unknown command
     
@@ -501,20 +530,25 @@ def Uniprot_USB_tx_data( i_tx_data ):
         except UniprotException_Device_not_found as e:
             # If reinitialization failed
             # EXCEPTION
-            raise UniprotException_Device_not_found("[Re-init failed]"
-                                                     + str(e))
+            message = "[Re-init failed]" + str(e)
+            logger.error("[Uniprot_USB_tx_data]" + message)
+            raise UniprotException_Device_not_found(message)
         
         # Else reinitialization OK
         
         # Anyway this is not standard behaviour - higher layer should send all
         # data again
         # EXCEPTION 
-        raise UniprotException_Reset_success(" Restart occurred!")
+        message = " Restart occurred!\n"
+        logger.warn("[Uniprot_USB_tx_data]" + message)
+        raise UniprotException_Reset_success(message)
         
         
     # Program never should goes here (critical error)
-    print("[Uniprot_USB_tx_data] Internal error. Unexpected status :("
-          " Exiting...")
+    message = "[Uniprot_USB_tx_data] Internal error. Unexpected status :("\
+              " Exiting...\n"
+    logger.critical(message)
+    print(message)
     exit()
 
 
@@ -561,7 +595,11 @@ def Uniprot_USB_try_rx_data():
     
     
     # RX first frame
+    logger.debug("[Uniprot_USB_try_rx_data] Before USB driver RX")
     i_buffer_rx_8 = usb_rx_data(device)
+    
+    logger.debug("[Uniprot_USB_try_rx_data] RAW uniprot data (begin):\n" + 
+                 str(i_buffer_rx_8) + "\n\n\n")
     
     # Try to find header
     if((i_buffer_rx_8[0] == const_UNI_CHAR_HEADER) and
@@ -586,7 +624,10 @@ def Uniprot_USB_try_rx_data():
         crc16 = crc_xmodem_update(crc16, i_buffer_rx_8[2])
         crc16 = crc_xmodem_update(crc16, i_buffer_rx_8[3])
     else:
-        # If correct header is not found, then return NACK 
+        # If correct header is not found, then return NACK
+        logger.debug("[Uniprot_USB_try_rx_data]"
+                     " Header not found. NACK\n"
+                     + str(i_buffer_rx)) 
         return const_UNI_RES_CODE_NACK
         
         
@@ -596,6 +637,7 @@ def Uniprot_USB_try_rx_data():
     
     # Now save payload (data). RX all remaining bytes
     while(i_rx_remain_data_Bytes >= 1):
+        
         # Process rest of data received by USB
         while((i_buffer_rx_8_index < 8) and (i_rx_remain_data_Bytes >= 1)):
             # If there are data
@@ -616,6 +658,8 @@ def Uniprot_USB_try_rx_data():
                     crc16 = crc_xmodem_update(crc16, const_UNI_CHAR_TAIL)
                 else:
                     # Else send NACK
+                    logger.debug("[Uniprot_USB_try_rx_data]"
+                                 " Tail not found. NACK\n")
                     return const_UNI_RES_CODE_NACK
             
             # Test CRC - high Byte
@@ -635,7 +679,11 @@ def Uniprot_USB_try_rx_data():
         # When jump out of previous loop -> read new data (if any remain)
         if(i_rx_remain_data_Bytes >= 1):
             # If there are still any data to receive -> get them!
+            logger.debug("[Uniprot_USB_try_rx_data] Before USB RX\n")
             i_buffer_rx_8 = usb_rx_data(device)
+            
+            logger.debug("[Uniprot_USB_try_rx_data] RAW uniprot data"
+                         ":\n" + str(i_buffer_rx_8) + "\n")
         
         # Reset i_buffer_rx_8_index
         i_buffer_rx_8_index = 0
@@ -644,6 +692,8 @@ def Uniprot_USB_try_rx_data():
         # If all right -> return ACK -> higher layer should send ACK command
         return const_UNI_RES_CODE_ACK
     else:
+        logger.warning("[Uniprot_USB_try_rx_data]"
+                       " Received more Bytes than configured.")
         return const_UNI_RES_CODE_ACK_WARNING
 
 
@@ -665,12 +715,11 @@ def Uniprot_USB_rx_data():
         status = Uniprot_USB_try_rx_data();
     except:
         raise UniprotException_Device_not_found("[Try RX data]"
-                                                " Device not found!")
+                                                " Device not found!\n")
     
-    if(const_uniprot_VERSION == "debug"):
-        print(">> Uniprot RX status (1): " + status + "\n RX Data:")
-        print(i_buffer_rx)
-        print("----------")
+    logger.debug("[Uniprot_USB_rx_data]"
+                 "Uniprot RX status (1): " + status + "\n RX Data:\n" +
+                 str(i_buffer_rx)  + "\n")
     
     
     # Reset counter
@@ -681,7 +730,9 @@ def Uniprot_USB_rx_data():
           (status != const_UNI_RES_CODE_ACK_WARNING)):
         # While is not ACK -> something is wrong -> try to do something!
         
-        print_if_debug_uniprot(">> Uniprot RX status (while): " + status)
+        logger.warn("[Uniprot_USB_rx_data]"
+                     " Uniprot RX status (while): " + status +
+                     " NACK counter: " + str(i_nack_cnt) + "\n")
         
         # Test for NACK -> if NACK send all data again
         if(status == const_UNI_RES_CODE_NACK):
@@ -703,14 +754,14 @@ def Uniprot_USB_rx_data():
                 Uniprot_USB_tx_command(const_UNI_CHAR_NACK)
             except:
                 raise UniprotException_Device_not_found(
-                                "[TX CMD (loop)] Device not found!")
+                                "[TX CMD (loop)] Device not found!\n")
             
             # And wait for data
             try:
                 status = Uniprot_USB_try_rx_data()
             except:
                 raise UniprotException_Device_not_found(
-                                "[Try RX data (loop)] Device not found!")
+                                "[Try RX data (loop)] Device not found!\n")
                 
                 
         elif(status == const_UNI_RES_CODE_RESET):
@@ -731,20 +782,21 @@ def Uniprot_USB_rx_data():
                             "[Re-init (loop)]" + str(e))
             
             # Else reinitialization OK -> raise exception
-            raise UniprotException_Reset_success(" Restart occurred! (loop)")
+            raise UniprotException_Reset_success(" Restart occurred! (loop)\n")
             
             
     # Print at least warning if needed
     if(status == const_UNI_RES_CODE_ACK_WARNING):
-        print("Data successfully received, but number of received Bytes was\
-         higher than defined maximum. However buffer overflow is not come.")
+        logger.warn("Data successfully received, but number of received Bytes"
+                    " was higher than defined maximum. However buffer overflow"
+                    " is not come.")
     
     # When ACK - previous while never run -> send ACK and return data
     try:
         Uniprot_USB_tx_command(const_UNI_CHAR_ACK)
     except:
         raise UniprotException_Device_not_found(
-                        "[TX command] Device not found!")
+                        "[TX command] Device not found!\n")
    
     return i_buffer_rx
 

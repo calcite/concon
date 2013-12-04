@@ -9,6 +9,13 @@
 #
 # @author Martin Stejskal
 
+##
+# Libraries for log events
+import logging
+import logging.config
+
+logger = logging.getLogger('root')
+
 # Universal protocol for embedded systems
 from CodecKitApp_lib.HW_bridge_uniprot import *
 
@@ -63,8 +70,15 @@ if __name__ == '__main__':
     print(arr2)
     """
     
+    
+    
     # Bridge init
-    bridge = Bridge()
+    try:
+        bridge = Bridge()
+    except BridgeException_Device_not_found as e:
+        logger.error("[Bridge]" + str(e))
+        print("Exiting....")
+        exit()
     
     
     print("\nMAX DID: " + str(bridge.get_max_Device_ID()) + "\n")
@@ -72,16 +86,6 @@ if __name__ == '__main__':
     # Print metadata
     print(bridge.device_metadata[0])
     print(bridge.device_metadata[1])
-    
-    
-    try:
-        setting = bridge.get_setting_from_device(0, 6)
-    except BridgeException_Error as e:
-        print(str(e))
-    
-    
-    print(setting)
-    
     
     
     

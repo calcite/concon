@@ -143,9 +143,12 @@ def usb_tx_data(device, data_8bit):
 def usb_rx_data(device):
     global i_data_in
     
+    timeout_cnt = 25
+    
     # Set last byte to value higher then 255 -> can receive only 0 - 255 ->
     # easy to detect, if all data were written is the check last "Byte"
-    i_data_in[7] = 512
+    for i in range(8):
+        i_data_in[i] = 512
     
     #set custom raw data handler
     device.set_raw_data_handler(in_sample_handler)
@@ -154,12 +157,23 @@ def usb_rx_data(device):
     print_if_debug_usb_driver("\nW8 4 data")
     
     tmp = 0
-    while i_data_in[7] > 255:  # Wait for valid data
+    while ( (i_data_in[7] > 255) or\
+            (i_data_in[6] > 255) or\
+            (i_data_in[5] > 255) or\
+            (i_data_in[4] > 255) or\
+            (i_data_in[3] > 255) or\
+            (i_data_in[2] > 255) or\
+            (i_data_in[1] > 255) or\
+            (i_data_in[0] > 255) ):  # Wait for valid data
     #while not kbhit() and device.is_plugged():    # Wait until pressed key
-        #sleep(0.000001)
+        sleep(0.001)
         # Instead of sleep function use simple counter
         tmp = tmp + 1
-            
+        if(tmp > timeout_cnt):
+            print("\n\n !!!RX timeout !!!")
+            i_buffer_rx = [0xF0]*8
+            return i_buffer_rx
+    
     print_if_debug_usb_driver("\nRX done")
     return i_data_in
 
