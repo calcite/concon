@@ -11,6 +11,7 @@ import pywinusb.hid as hid
 # Time operations
 from time import sleep
 
+
 # Keyboard events (only debug for now)
 #from msvcrt import kbhit
 
@@ -21,6 +22,15 @@ from time import sleep
     # options: debug, release
 const_USB_DRV_VERSION = "release"
 #const_USB_DRV_VERSION = "debug"
+
+##
+# @brief Define maximum time in which must data came back from device
+#
+# Note that usually there is not problem on device side, but on PC side\n
+# (depend on CPU load -> application process time -> sometimes can miss\n
+# packets)
+const_USB_TIMEOUT_MS = 5
+
 ##
 # @}
 
@@ -142,8 +152,9 @@ def usb_tx_data(device, data_8bit):
 
 def usb_rx_data(device):
     global i_data_in
+    global const_USB_TIMEOUT_MS
     
-    timeout_cnt = 25
+    timeout_cnt = const_USB_TIMEOUT_MS
     
     # Set last byte to value higher then 255 -> can receive only 0 - 255 ->
     # easy to detect, if all data were written is the check last "Byte"
@@ -170,12 +181,18 @@ def usb_rx_data(device):
         # Instead of sleep function use simple counter
         tmp = tmp + 1
         if(tmp > timeout_cnt):
-            print("\n\n !!!RX timeout !!!")
-            i_buffer_rx = [0xF0]*8
+            print("\n\n USB driver: RX timeout !!!")
+            i_buffer_rx = [0xFF0]*8
             return i_buffer_rx
     
     print_if_debug_usb_driver("\nRX done")
-    return i_data_in
+    i_buffer_rx_cpy = list(i_data_in)
+    
+    # Load invalid data to original buffer -> specially for debug
+    for i in range(8):
+        i_data_in[i] = 0xFFF
+    
+    return i_buffer_rx_cpy
 
 
 

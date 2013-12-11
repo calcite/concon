@@ -70,14 +70,14 @@ class BridgeException_Error(Exception):
 class Bridge():
     # @brief: "Constants"
     # @{    
-    MAX_RETRY_CNT = 10
+    MAX_RETRY_CNT = 30
     
     # In some cases should be defined maximum size of RX buffer
     MAX_RX_BUFFER_BYTES = 65530
     
     # Following constants must be same as in firmware (HW_bridge_uniprot)
     STATE_WAITING_FOR_REQUEST = 0
-    STATE_REQUEST_GET_SETTINGS = 1
+    STATE_REQUEST_GET_SETTING = 1
     STATE_REQUEST_SET_SETTINGS = 2
     STATE_REQUEST_GET_METADATA = 3
     STATE_REQUEST_GET_NUM_OF_DEV = 4
@@ -129,7 +129,7 @@ class Bridge():
             self.out_value = -1
             self.descriptor = ""
         def __str__(self):
-            return "Get settings>\n DESCRIPTOR: {0}\n IN TYPE: {1}\n IN MIN:"\
+            return "Get setting>\n DESCRIPTOR: {0}\n IN TYPE: {1}\n IN MIN:"\
                 " {2}\n IN MAX: "\
                 "{3}\n OUT TYPE: {4}\n OUT MIN: {5}\n OUT MAX: {6}\n "\
                 "OUT VALUE: {7}\n<---------------------->\n"\
@@ -271,6 +271,8 @@ class Bridge():
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
+    ##
+    # @brief Close device (stop using USB interface)
     def close(self):
         try:
             Uniprot_close()
@@ -279,7 +281,124 @@ class Bridge():
             # if needed
             logger.error("[close][Uniprot close] " + str(e))
             raise BridgeException_Device_not_found("[Uniprot close] " + str(e))
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
+    ##
+    # @brief Send request and get response
+    #
+    # TX packet and RX packet must be configured before call this function
+    #
+    # @param i_tx_buffer: Data to send
+    # @return: received data 
+    def send_request_get_data(self, i_tx_buffer):
+        # Reset retry count
+        i_retry_cnt = 0
         
+        # Inform if request should be transmitted again
+        send_request_again = 0
+        
+        # Main loop - TX data + RX data
+        while(1):
+            # Reset value -> request will be send anyway (next while)
+            send_request_again = 0
+            # Secondary loop - try TX data
+            while(1):
+                if(i_retry_cnt > 0):
+                    logger.warn("[send_request_get_data][Uniprot TX data]"
+                                " Retry count: " + str(i_retry_cnt) + "\n")
+                try:
+                    # Try to send request
+                    status = Uniprot_USB_tx_data( i_tx_buffer )
+                
+                except UniprotException_Device_not_found as e:
+                    logger.error("[send_request_get_data]"
+                                 "[Uniprot TX data]"
+                                 + str(e))
+                    raise BridgeException_Device_not_found("[Uniprot TX data]"
+                                                           + str(e))
+                
+                except UniprotException_NACK_fail as e:
+                    logger.critical("[send_request_get_data]"
+                                    "[Uniprot TX data]"
+                                    + str(e))
+                    raise BridgeException_NACK_fail("[Uniprot TX data]"
+                                                     + str(e))
+                
+                except UniprotException_RX_buffer_overflow as e:
+                    logger.critical("[send_request_get_data]"
+                                    "[Uniprot TX data]"
+                                    + str(e))
+                    raise BridgeException_Device_RX_buffer_overflow("[Uniprot"
+                                                                    " TX data]"
+                                                                    + str(e))
+                
+                except UniprotException_Reset_success as e:
+                    logger.warn("[send_request_get_data]"
+                                "[Uniprot TX data]"
+                                + str(e))
+                    # Send data once again
+                    i_retry_cnt = i_retry_cnt + 1
+                    if(i_retry_cnt > Bridge.MAX_RETRY_CNT):
+                        logger.critical("[send_request_get_data]"
+                                        " Reset retry count reach"
+                                        "maximum (TX data).\n")
+                        raise BridgeException_Reset_fail(" Reset retry count"
+                                                         " reach maximum"
+                                                         " (TX data).\n")
+                else:
+                    # Else TX data without exception -> break while
+                    break
+            
+            
+            logger.debug("[send_request_get_data]"
+            " Request status: " + status + "\n")
+            
+            # Secondary loop - try RX data
+            
+            # RX data (one setting)
+            while(1):
+                if(i_retry_cnt > 0):
+                    logger.warn("[send_request_get_data][Uniprot RX data]"
+                                " Retry count: " + str(i_retry_cnt) + "\n")
+                try:
+                    i_rx_buffer = Uniprot_USB_rx_data()
+                except UniprotException_Device_not_found as e:
+                    logger.error("[send_request_get_data][Uniprot RX data]"
+                                 + str(e))
+                    raise BridgeException_Device_not_found("[Uniprot RX data]"
+                                                           + str(e))
+                except UniprotException_Reset_success as e:
+                    logger.warn("[send_request_get_data][Uniprot RX data]"
+                                 + str(e))
+                    # Send data once again
+                    i_retry_cnt = i_retry_cnt + 1
+                    if(i_retry_cnt > Bridge.MAX_RETRY_CNT):
+                        logger.critical("[send_request_get_data]"
+                                        "[Uniprot RX data]"
+                                        " Reset retry count"
+                                        " reach maximum (RX data).\n")
+                        raise BridgeException_Reset_fail(" Reset retry count"
+                                                         " reach maximum"
+                                                         " (RX data).\n")
+                    else:
+                        # Must send request again (reset was done, so
+                        # everything is set to default -> request was removed.
+                        # So, set send_request_again to 1 and break this while
+                        # to get to TX while
+                        send_request_again = 1
+                        break 
+                else:
+                    # Else no exception -> break while
+                    break
+            # Test if all OK (send_request_again = 0) or if request should be
+            # send once again due to reset
+            if(send_request_again == 0):
+                # If all OK -> break even main while cycle 
+                break
+        
+        # If all OK -> return RX data
+        return i_rx_buffer
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
@@ -303,94 +422,43 @@ class Bridge():
         Uniprot_config_RX_packet( 3 )
         
         
-        # Reset counter
-        i_retry_cnt = 0
+        try:
+            i_rx_buffer = self.send_request_get_data(i_tx_buffer)
+        except BridgeException_Device_not_found as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[get_number_of_devices_from_device]" + message)
+            raise BridgeException_Device_not_found(message)
         
-        # TX command request
-        while(1):
-            try:
-                # Try to get status (but mainly send data/request)
-                status = Uniprot_USB_tx_data( i_tx_buffer )
-            
-            except UniprotException_Device_not_found as e:
-                logger.error("[get_number_of_devices_from_device]"
-                             "[Uniprot TX data]" + str(e))
-                raise BridgeException_Device_not_found("[Uniprot TX data]"
-                                                    + str(e))
-                
-            except UniprotException_NACK_fail as e:
-                logger.critical("[get_number_of_devices_from_device]"
-                                "[Uniprot TX data]" + str(e))
-                raise BridgeException_NACK_fail("[Uniprot TX data]" + str(e))
-            
-            except UniprotException_RX_buffer_overflow as e:
-                logger.critical("[get_number_of_devices_from_device]"
-                                "[Uniprot TX data]" + str(e))
-                raise BridgeException_Device_RX_buffer_overflow(
-                                "[Uniprot TX data]" + str(e))
-                
-            except UniprotException_Reset_success as e:
-                logger.warn("[get_number_of_devices_from_device]"
-                               "[Uniprot TX data]" + str(e))
-                # Send data once again
-                i_retry_cnt = i_retry_cnt + 1
-                if(i_retry_cnt > Bridge.MAX_RETRY_CNT):
-                    logger.critical("[get_number_of_devices_from_device]"
-                                    " Reset retry count reach"
-                                    "maximum (TX data).\n")
-                    raise BridgeException_Reset_fail(" Reset retry count reach"
-                                                 "maximum (TX data).\n")
-            else:
-                # If Uniprot_USB_tx_data end as expected -> no exception ->
-                # -> break 
-                break
-            
-            
-            logger.info("[get_number_of_devices_from_device]"
-                        " Get number of devices" + status)
-            
-        # Reset counter
-        i_retry_cnt = 0
+        except BridgeException_NACK_fail as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[get_number_of_devices_from_device]" + message)
+            raise BridgeException_NACK_fail(message)
         
-        # When all OK, then RX data (expect from AVR)
-        while(1):
-            try:
-                i_buffer_rx = Uniprot_USB_rx_data()
-            except UniprotException_Device_not_found as e:
-                logger.error("[get_number_of_devices_from_device]"
-                             "[Uniprot RX data]" + str(e))
-                raise BridgeException_Device_not_found("[Uniprot RX data]"
-                                                    + str(e))
-            except UniprotException_Reset_success as e:
-                logger.warn("[get_number_of_devices_from_device]"
-                               "[Uniprot RX data]" + str(e))
-                # Send data once again
-                i_retry_cnt = i_retry_cnt + 1
-                if(i_retry_cnt > Bridge.MAX_RETRY_CNT):
-                    logger.critical("[get_number_of_devices_from_device]"
-                                    " Reset retry count reach"
-                                    "maximum (RX data).\n")
-                    raise BridgeException_Reset_fail(" Reset retry count reach"
-                                                 "maximum (RX data).\n")
-            else:
-                # If Uniprot_USB_rx_data end as expected -> no exception ->
-                # -> break
-                break
+        except BridgeException_Device_RX_buffer_overflow as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[get_number_of_devices_from_device]" + message)
+            raise BridgeException_Device_RX_buffer_overflow(message)
         
+        except BridgeException_Reset_fail as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[get_number_of_devices_from_device]" + message)
+            raise BridgeException_Reset_fail(message)
+        
+       
         # Test if send Device ID is correct
-        if(i_buffer_rx[0] != 0):
+        if(i_rx_buffer[0] != 0):
             # This should not happen. It is not big problem, but it is not
             # standard behaviour
             logger.warn("[get_number_of_devices_from_device]"
                            "[Uniprot RX data] Device ID is not 0x00!")
         
         # Test if there is some problem on AVR side
-        if(i_buffer_rx[1] == 0):
+        if(i_rx_buffer[1] == 0):
             # No problem, everything works
             
-            self.i_num_of_devices = i_buffer_rx[2]
+            self.i_num_of_devices = i_rx_buffer[2]
             # Send only number of devices (max. device index number)
-            return i_buffer_rx[2]
+            return i_rx_buffer[2]
         
         
         logger.error("[get_number_of_devices_from_device]"
@@ -438,99 +506,51 @@ class Bridge():
         # Configure RX packet
         Uniprot_config_RX_packet( Bridge.MAX_RX_BUFFER_BYTES )
         
-        # Reset counter
-        i_retry_cnt = 0
+        try:
+            i_rx_buffer = self.send_request_get_data(i_tx_buffer)
+        except BridgeException_Device_not_found as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[get_metadata_from_device]" + message)
+            raise BridgeException_Device_not_found(message)
         
-        while(1):
-            try:
-                # Try to send request
-                status = Uniprot_USB_tx_data( i_tx_buffer )
-                
-            except UniprotException_Device_not_found as e:
-                logger.error("[get_metadata_from_device]"
-                             "[Uniprot TX data]" + str(e))
-                raise BridgeException_Device_not_found("[Uniprot TX data]"
-                                                       + str(e))
-                
-            except UniprotException_NACK_fail as e:
-                logger.critical("[get_metadata_from_device]"
-                                "[Uniprot TX data]" + str(e))
-                raise BridgeException_NACK_fail("[Uniprot TX data]" + str(e))
+        except BridgeException_NACK_fail as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[get_metadata_from_device]" + message)
+            raise BridgeException_NACK_fail(message)
         
-            except UniprotException_RX_buffer_overflow as e:
-                logger.critical("[get_metadata_from_device]"
-                                "[Uniprot TX data]" + str(e))
-                raise BridgeException_Device_RX_buffer_overflow("[Uniprot"
-                                                                " TX data]"
-                                                             + str(e))
-                
-            except UniprotException_Reset_success as e:
-                logger.warn("[get_metadata_from_device]"
-                            "[Uniprot TX data]" + str(e))
-                # Send data once again
-                i_retry_cnt = i_retry_cnt + 1
-                if(i_retry_cnt > Bridge.MAX_RETRY_CNT):
-                    logger.critical("[get_metadata_from_device]"
-                                " Reset retry count reach maximum (TX data)\ns")
-                    raise BridgeException_Reset_fail(" Reset retry count reach"
-                                                     "maximum (TX data).\n")
-            else:
-                # Else TX data without exception -> break while
-                break
-            
-            
-        logger.info("[get_metadata_from_device]"
-                    " Get metadata status: " + status + "\n")
+        except BridgeException_Device_RX_buffer_overflow as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[get_metadata_from_device]" + message)
+            raise BridgeException_Device_RX_buffer_overflow(message)
         
-        # Reset counter
-        i_retry_cnt = 0
+        except BridgeException_Reset_fail as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[get_metadata_from_device]" + message)
+            raise BridgeException_Reset_fail(message)
         
-        # RX data (metadata)
-        while(1):
-            try:
-                i_buffer_rx = Uniprot_USB_rx_data()
-                
-            except UniprotException_Device_not_found as e:
-                logger.error("[get_number_of_devices_from_device]"
-                             "[Uniprot RX data]"
-                              + str(e))
-                raise BridgeException_Device_not_found("[Uniprot RX data]"
-                                                       + str(e))
-            except UniprotException_Reset_success as e:
-                logger.warn("[get_number_of_devices_from_device]"
-                            "[Uniprot RX data]"
-                            + str(e))
-                # Send data once again
-                i_retry_cnt = i_retry_cnt + 1
-                if(i_retry_cnt > Bridge.MAX_RETRY_CNT):
-                    logger.critical("[get_number_of_devices_from_device]"
-                                    " Reset retry count reach maximum"
-                                    " (RX data).\n")
-                    raise BridgeException_Reset_fail(" Reset retry count"
-                                            " reach maximum (RX data).\n")
-            else:
-                # Else no exception -> break while
-                break
+        
+        
+        
         
         # Test if received Device ID is same
-        if(i_buffer_rx[0] != i_Device_ID):
+        if(i_rx_buffer[0] != i_Device_ID):
             # This should not happen.
-            message = " Got different Device ID (" + str(i_buffer_rx[0]) +\
+            message = " Got different Device ID (" + str(i_rx_buffer[0]) +\
             "), but expected " + str(i_Device_ID) + " . This is failure of"\
             "communication protocol."
-            logger.warn("[get_number_of_devices_from_device]" + message)
+            logger.warn("[get_metadata_from_device]" + message)
             raise BridgeException_Error(message)
         
         # Test return code - never should happen, but...
-        if(i_buffer_rx[1] != 0):
+        if(i_rx_buffer[1] != 0):
             # This never happen. Only one thing that may fail is wrong Device
             # ID, but this is checked before request is send. It can fail only
             # when whole protocol fail -> developer should fix this
-            message = "Device returned code: " + str(i_buffer_rx[1]) +\
+            message = "Device returned code: " + str(i_rx_buffer[1]) +\
                  ". Please refer to source code what error code means."\
                  " However this should not happen. It is seems that there is"\
                  " some problem when transmitting or receiving data."
-            logger.critical("[get_number_of_devices_from_device]"
+            logger.critical("[get_metadata_from_device]"
                             "[Uniprot RX data]"
                              + message)
             raise BridgeException_Error(message)
@@ -543,23 +563,23 @@ class Bridge():
         i_index = 2
         
         # Load MAX CMD ID
-        rx_metadata.MAX_CMD_ID = (i_buffer_rx[i_index])<<8
+        rx_metadata.MAX_CMD_ID = (i_rx_buffer[i_index])<<8
         i_index = i_index+1
-        rx_metadata.MAX_CMD_ID = rx_metadata.MAX_CMD_ID + i_buffer_rx[i_index]
+        rx_metadata.MAX_CMD_ID = rx_metadata.MAX_CMD_ID + i_rx_buffer[i_index]
         i_index = i_index+1
         
         # Load serial number
-        rx_metadata.serial = i_buffer_rx[i_index]
+        rx_metadata.serial = i_rx_buffer[i_index]
         i_index = i_index+1
         
         # Clear descriptor
         rx_metadata.descriptor = ""
         
         # Load descriptor
-        while(i_buffer_rx[i_index] != 0x00):
+        while(i_rx_buffer[i_index] != 0x00):
             # Add character to descriptor
             rx_metadata.descriptor =   rx_metadata.descriptor +\
-                                         str(unichr(i_buffer_rx[i_index]))
+                                         str(unichr(i_rx_buffer[i_index]))
             
             # Increase index
             i_index = i_index+1
@@ -616,7 +636,7 @@ class Bridge():
         # Device ID
         i_tx_buffer[0] = i_Device_ID
         # Bridge command (request ID)
-        i_tx_buffer[1] = Bridge.STATE_REQUEST_GET_SETTINGS
+        i_tx_buffer[1] = Bridge.STATE_REQUEST_GET_SETTING
         # CMD ID - must be split into two Bytes
         i_tx_buffer[2] = (i_CMD_ID >> 8) & 0xFF
         i_tx_buffer[3] = (i_CMD_ID)      & 0xFF
@@ -629,92 +649,33 @@ class Bridge():
         # Configure RX packet
         Uniprot_config_RX_packet( Bridge.MAX_RX_BUFFER_BYTES )
         
-        # Reset counter
-        i_retry_cnt = 0
+        try:
+            i_rx_buffer = self.send_request_get_data(i_tx_buffer)
+        except BridgeException_Device_not_found as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[get_setting_from_device]" + message)
+            raise BridgeException_Device_not_found(message)
         
-        while(1):
-            if(i_retry_cnt > 0):
-                logger.warn("[get_setting_from_device][Uniprot TX data]"
-                            " Retry count: " + str(i_retry_cnt) + "\n")
-            
-            try:
-                # Try to send request
-                status = Uniprot_USB_tx_data( i_tx_buffer )
-            except UniprotException_Device_not_found as e:
-                logger.error("[get_setting_from_device]"
-                             "[Uniprot TX data]"
-                              + str(e))
-                raise BridgeException_Device_not_found("[Uniprot TX data] "
-                                                       + str(e))
-                
-            except UniprotException_NACK_fail as e:
-                logger.critical("[get_setting_from_device]"
-                                "[Uniprot TX data]"
-                                 + str(e))
-                raise BridgeException_NACK_fail("[Uniprot TX data]" + str(e))
+        except BridgeException_NACK_fail as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[get_setting_from_device]" + message)
+            raise BridgeException_NACK_fail(message)
         
-            except UniprotException_RX_buffer_overflow as e:
-                logger.critical("[get_setting_from_device]"
-                                "[Uniprot TX data]"
-                                 + str(e))
-                raise BridgeException_Device_RX_buffer_overflow("[Uniprot"
-                                                                " TX data]"
-                                                             + str(e))
-                
-            except UniprotException_Reset_success as e:
-                logger.warn("[get_setting_from_device]"
-                            "[Uniprot TX data]"
-                             + str(e))
-                # Send data once again
-                i_retry_cnt = i_retry_cnt + 1
-                if(i_retry_cnt > Bridge.MAX_RETRY_CNT):
-                    logger.critical("[get_setting_from_device]"
-                                    " Reset retry count reach"
-                                    "maximum (TX data).\n")
-                    raise BridgeException_Reset_fail(" Reset retry count reach"
-                                                     "maximum (TX data).\n")
-            else:
-                # Else TX data without exception -> break while
-                break
-            
-            
-        logger.debug("[get_setting_from_device]"
-                    " Get setting: " + status + "\n")
+        except BridgeException_Device_RX_buffer_overflow as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[get_setting_from_device]" + message)
+            raise BridgeException_Device_RX_buffer_overflow(message)
         
-        # RX data (one setting)
-        i_retry_cnt = 0
-        while(1):
-            logger.debug("[get_setting_from_device][Uniprot RX data]"
-                         " Retry count: " + str(i_retry_cnt) + "\n")
-            try:
-                i_buffer_rx = Uniprot_USB_rx_data()
-            except UniprotException_Device_not_found as e:
-                logger.error("[get_setting_from_device][Uniprot RX data]"
-                              + str(e))
-                raise BridgeException_Device_not_found("[Uniprot RX data]"
-                                                       + str(e))
-            except UniprotException_Reset_success as e:
-                logger.warn("[get_setting_from_device][Uniprot RX data]" + str(e))
-                # Send data once again
-                i_retry_cnt = i_retry_cnt + 1
-                if(i_retry_cnt > Bridge.MAX_RETRY_CNT):
-                    logger.critical("[get_setting_from_device]"
-                                    "[Uniprot RX data]"
-                                    " Reset retry count"
-                                    " reach maximum (RX data).\n")
-                    raise BridgeException_Reset_fail(" Reset retry count"
-                                            " reach maximum (RX data).\n")
-            else:
-                # Else no exception -> break while
-                break
-            
-        logger.debug("[get_setting_from_device]"
-                    "Get setting: RX data OK\n")
+        except BridgeException_Reset_fail as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[get_setting_from_device]" + message)
+            raise BridgeException_Reset_fail(message)
+        
         
         # Test if received DID is same
-        if(i_buffer_rx[0] != i_Device_ID):
+        if(i_rx_buffer[0] != i_Device_ID):
             # This should not happen.
-            message = " Got different Device ID (" + str(i_buffer_rx[0]) +\
+            message = " Got different Device ID (" + str(i_rx_buffer[0]) +\
                "), but expected " + str(i_Device_ID) + " . This is failure of"\
                "communication protocol.\n"
             logger.error("[get_setting_from_device]"
@@ -722,11 +683,11 @@ class Bridge():
             raise BridgeException_Error(message)
             
         # Check return code - should be 0, else there is bug in protocol
-        if(i_buffer_rx[1] != 0):
+        if(i_rx_buffer[1] != 0):
             # This never happen. Only one thing that may fail is wrong Device
             # ID, but this is checked before request is send. It can fail only
             # when whole protocol fail -> developer should fix this
-            message = " Device returned code: " + str(i_buffer_rx[1]) +\
+            message = " Device returned code: " + str(i_rx_buffer[1]) +\
                     ". Please refer to source code what error code means."\
                     " However this should not happen. It is seems that there"\
                     " is some problem when transmitting or receiving data."
@@ -734,9 +695,9 @@ class Bridge():
             raise BridgeException_Error(message)
             
         # Check CMD ID
-        if(((i_buffer_rx[2]<<8) + i_buffer_rx[3]) != i_CMD_ID):
+        if(((i_rx_buffer[2]<<8) + i_rx_buffer[3]) != i_CMD_ID):
             message = " Device returned different CMD ID (" +\
-                    str((i_buffer_rx[2]<<8) + i_buffer_rx[3]) +\
+                    str((i_rx_buffer[2]<<8) + i_rx_buffer[3]) +\
                     "), but expected " + \
                     str(i_CMD_ID) + ". This means failure on protocol layer."
             logger.critical("[get_setting_from_device]" + message)
@@ -751,90 +712,90 @@ class Bridge():
         # Load data to struct (load byte by byte)
         
         # IN TYPE
-        rx_config.in_type = i_buffer_rx[i_index_rx_buffer]
+        rx_config.in_type = i_rx_buffer[i_index_rx_buffer]
         i_index_rx_buffer = i_index_rx_buffer +1
         
         
         # IN MIN
-        rx_config.in_min =  (i_buffer_rx[i_index_rx_buffer]<<24)
+        rx_config.in_min =  (i_rx_buffer[i_index_rx_buffer]<<24)
         i_index_rx_buffer = i_index_rx_buffer +1
         rx_config.in_min =  rx_config.in_min +\
-                            (i_buffer_rx[i_index_rx_buffer]<<16)
+                            (i_rx_buffer[i_index_rx_buffer]<<16)
         i_index_rx_buffer = i_index_rx_buffer +1
         rx_config.in_min =  rx_config.in_min +\
-                            (i_buffer_rx[i_index_rx_buffer]<<8)
+                            (i_rx_buffer[i_index_rx_buffer]<<8)
         i_index_rx_buffer = i_index_rx_buffer +1
         rx_config.in_min =  rx_config.in_min +\
-                            (i_buffer_rx[i_index_rx_buffer])
+                            (i_rx_buffer[i_index_rx_buffer])
         i_index_rx_buffer = i_index_rx_buffer +1
         
         
         # IN MAX
-        rx_config.in_max =  (i_buffer_rx[i_index_rx_buffer]<<24)
+        rx_config.in_max =  (i_rx_buffer[i_index_rx_buffer]<<24)
         i_index_rx_buffer = i_index_rx_buffer +1
         rx_config.in_max =  rx_config.in_max +\
-                            (i_buffer_rx[i_index_rx_buffer]<<16)
+                            (i_rx_buffer[i_index_rx_buffer]<<16)
         i_index_rx_buffer = i_index_rx_buffer +1
         rx_config.in_max =  rx_config.in_max +\
-                            (i_buffer_rx[i_index_rx_buffer]<<8)
+                            (i_rx_buffer[i_index_rx_buffer]<<8)
         i_index_rx_buffer = i_index_rx_buffer +1
         rx_config.in_max =  rx_config.in_max +\
-                            (i_buffer_rx[i_index_rx_buffer])
+                            (i_rx_buffer[i_index_rx_buffer])
         i_index_rx_buffer = i_index_rx_buffer +1
         
         
         # OUT TYPE
-        rx_config.out_type = i_buffer_rx[i_index_rx_buffer]
+        rx_config.out_type = i_rx_buffer[i_index_rx_buffer]
         i_index_rx_buffer = i_index_rx_buffer +1
         
         
         # OUT MIN
-        rx_config.out_min = (i_buffer_rx[i_index_rx_buffer]<<24)
+        rx_config.out_min = (i_rx_buffer[i_index_rx_buffer]<<24)
         i_index_rx_buffer = i_index_rx_buffer +1
         rx_config.out_min = rx_config.out_min +\
-                            (i_buffer_rx[i_index_rx_buffer]<<16)
+                            (i_rx_buffer[i_index_rx_buffer]<<16)
         i_index_rx_buffer = i_index_rx_buffer +1
         rx_config.out_min = rx_config.out_min +\
-                            (i_buffer_rx[i_index_rx_buffer]<<8)
+                            (i_rx_buffer[i_index_rx_buffer]<<8)
         i_index_rx_buffer = i_index_rx_buffer +1
         rx_config.out_min = rx_config.out_min +\
-                            (i_buffer_rx[i_index_rx_buffer])
+                            (i_rx_buffer[i_index_rx_buffer])
         i_index_rx_buffer = i_index_rx_buffer +1
         
         
         # OUT MAX
-        rx_config.out_max = (i_buffer_rx[i_index_rx_buffer]<<24)
+        rx_config.out_max = (i_rx_buffer[i_index_rx_buffer]<<24)
         i_index_rx_buffer = i_index_rx_buffer +1
         rx_config.out_max = rx_config.out_max +\
-                            (i_buffer_rx[i_index_rx_buffer]<<16)
+                            (i_rx_buffer[i_index_rx_buffer]<<16)
         i_index_rx_buffer = i_index_rx_buffer +1
         rx_config.out_max = rx_config.out_max +\
-                            (i_buffer_rx[i_index_rx_buffer]<<8)
+                            (i_rx_buffer[i_index_rx_buffer]<<8)
         i_index_rx_buffer = i_index_rx_buffer +1
         rx_config.out_max = rx_config.out_max +\
-                            i_buffer_rx[i_index_rx_buffer]
+                            i_rx_buffer[i_index_rx_buffer]
         i_index_rx_buffer = i_index_rx_buffer +1
         
         
         # OUT VALUE
-        rx_config.out_value =   (i_buffer_rx[i_index_rx_buffer]<<24)
+        rx_config.out_value =   (i_rx_buffer[i_index_rx_buffer]<<24)
         i_index_rx_buffer   =   i_index_rx_buffer +1
         rx_config.out_value =   rx_config.out_value +\
-                                (i_buffer_rx[i_index_rx_buffer]<<16)
+                                (i_rx_buffer[i_index_rx_buffer]<<16)
         i_index_rx_buffer   =   i_index_rx_buffer +1
         rx_config.out_value =   rx_config.out_value +\
-                                (i_buffer_rx[i_index_rx_buffer]<<8)
+                                (i_rx_buffer[i_index_rx_buffer]<<8)
         i_index_rx_buffer   =   i_index_rx_buffer +1
         rx_config.out_value =   rx_config.out_value +\
-                                i_buffer_rx[i_index_rx_buffer]
+                                i_rx_buffer[i_index_rx_buffer]
         i_index_rx_buffer   =   i_index_rx_buffer +1
         
         
         # And get descriptor - do not know length
-        while(i_buffer_rx[i_index_rx_buffer] != 0x00):
+        while(i_rx_buffer[i_index_rx_buffer] != 0x00):
             # Add character to string
             rx_config.descriptor = rx_config.descriptor + \
-                            str(unichr(i_buffer_rx[i_index_rx_buffer]))
+                            str(unichr(i_rx_buffer[i_index_rx_buffer]))
             i_index_rx_buffer = i_index_rx_buffer +1
         
         
