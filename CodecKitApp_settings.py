@@ -52,9 +52,6 @@ if __name__ == '__main__':
     
     print("[LNAC settings] Alive!")
     
-    
-    
-    
     """
     one = GET_SETTINGS_STRUCT()
     

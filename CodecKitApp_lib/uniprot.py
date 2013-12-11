@@ -28,7 +28,6 @@ from crc16_xmodem import *
 from driver_usb import *
 
 
-
 ## Load configure file for logging
 logging.config.fileConfig('config/logging_global.conf', None, False)
 
@@ -48,7 +47,7 @@ const_USB_VID = 0x03EB
 
 const_USB_PID = 0x204F
 
-const_UNI_MAX_NACK_RETRY_COUNT = 40
+const_UNI_MAX_NACK_RETRY_COUNT = 50
 
 const_UNI_RES_CODE_CRC_ERROR = "CRC ERROR"
 
@@ -250,6 +249,7 @@ def Uni_process_rx_status_data(buffer_rx):
     crc16 = crc_xmodem_update(crc16, buffer_rx[0])
     crc16 = crc_xmodem_update(crc16, buffer_rx[1])
     crc16 = crc_xmodem_update(crc16, buffer_rx[2])
+    logger.debug("CRC result: " + str(crc16) + "\n\n")
     
     if(crc16 != 0):
         return const_UNI_RES_CODE_CRC_ERROR
@@ -303,7 +303,7 @@ def Uniprot_USB_tx_command( const_UNI_CHAR_CMD ):
     
     # Check if command is reset
     if( const_UNI_CHAR_CMD == const_UNI_CHAR_RESET):
-        # Add reset symbols
+        # Add reset symbols (Emergency reset from host)
         i_buffer_tx[3] = const_UNI_CHAR_RESET
         i_buffer_tx[4] = const_UNI_CHAR_RESET
         i_buffer_tx[5] = const_UNI_CHAR_RESET
@@ -409,9 +409,6 @@ def Uniprot_USB_try_tx_data( i_tx_data ):
         if(i_tx_remain_data_Bytes <= 0):
             # Send last bytes
             usb_tx_data(device, i_buffer_tx)
-            
-            logger.debug("[Uniprot_USB_try_tx_data] All data send. Waiting for"
-                         " response from device\n")
             # Get command
             i_buffer_rx = usb_rx_data(device)
             logger.debug("[Uniprot_USB_try_tx_data] Response received:\n" +
@@ -451,6 +448,7 @@ def Uniprot_USB_tx_data( i_tx_data ):
     global const_UNI_MAX_NACK_RETRY_COUNT
     
     global const_UNI_CHAR_RESET
+    global const_UNI_CHAR_ACK
     
     
     
@@ -465,10 +463,33 @@ def Uniprot_USB_tx_data( i_tx_data ):
     # Counter for NACK command. If reach limit -> raise exception
     i_nack_cnt = const_UNI_MAX_NACK_RETRY_COUNT
     
+    # Counter for thrown packets
+    i_throw_cnt = 0
+    
     # Send data again if there is NACK or CRC ERROR
     while( (status == const_UNI_RES_CODE_NACK) or \
            (status == const_UNI_RES_CODE_CRC_ERROR)
          ):
+        
+        # RX all data and throw them - clean buffers
+        i_pattern_tmp = [0xFF0]*8
+        logger.debug("[Uniprot_USB_tx_data] Throwing data....\n")
+        i_throw_cnt = 0
+        while(1):
+            i_rx_tmp = usb_rx_data(device)
+            logger.debug("[Uniprot_USB_tx_data] Throw data:" + str(i_rx_tmp) + "\n\n")
+            if(i_pattern_tmp == i_rx_tmp):
+                i_throw_cnt = i_throw_cnt +1
+                if(i_throw_cnt >= 3):
+                    break
+        
+        # Confirm, that all data was received (send ACK)
+        try:
+            Uniprot_USB_tx_command(const_UNI_CHAR_ACK)
+        except:
+            raise UniprotException_Device_not_found("[Try TX cmd]"
+                                        " Device not found! (loop)\n")
+         
         logger.warn("[Uniprot_USB_tx_data]"
                     " NACK or CRC error. TX data again... (" +
                     str(const_UNI_MAX_NACK_RETRY_COUNT - i_nack_cnt) +
