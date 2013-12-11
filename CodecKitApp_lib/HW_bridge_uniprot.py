@@ -78,7 +78,7 @@ class Bridge():
     # Following constants must be same as in firmware (HW_bridge_uniprot)
     STATE_WAITING_FOR_REQUEST = 0
     STATE_REQUEST_GET_SETTING = 1
-    STATE_REQUEST_SET_SETTINGS = 2
+    STATE_REQUEST_SET_SETTING = 2
     STATE_REQUEST_GET_METADATA = 3
     STATE_REQUEST_GET_NUM_OF_DEV = 4
     STATE_SEND_ONLY_RETURN_CODE = 5
@@ -129,13 +129,15 @@ class Bridge():
             self.out_value = -1
             self.descriptor = ""
         def __str__(self):
-            return "Get setting>\n DESCRIPTOR: {0}\n IN TYPE: {1}\n IN MIN:"\
+            return "Get setting\n DESCRIPTOR: {0}\n IN TYPE: {1}\n IN MIN:"\
                 " {2}\n IN MAX: "\
                 "{3}\n OUT TYPE: {4}\n OUT MIN: {5}\n OUT MAX: {6}\n "\
                 "OUT VALUE: {7}\n<---------------------->\n"\
-                .format(self.descriptor,
-                        self.in_type,  self.in_min,  self.in_max,\
-                        self.out_type, self.out_min, self.out_max,\
+                .format(self.descriptor,\
+                        Bridge.data_type_to_str(self.in_type),\
+                        self.in_min,  self.in_max,\
+                        Bridge.data_type_to_str(self.out_type),\
+                         self.out_min, self.out_max,\
                         self.out_value)
     
     
@@ -147,7 +149,7 @@ class Bridge():
             self.descriptor = ""
             
         def __str__(self):
-            return "Bridge>\n {0}\n Serial: {1}\n Max CMD ID: {2}\n"\
+            return "Bridge\n {0}\n Serial: {1}\n Max CMD ID: {2}\n"\
                     "<------------------------>"\
                 .format(self.descriptor, self.serial, self.MAX_CMD_ID)
 #-----------------------------------------------------------------------------#
@@ -281,6 +283,61 @@ class Bridge():
             # if needed
             logger.error("[close][Uniprot close] " + str(e))
             raise BridgeException_Device_not_found("[Uniprot close] " + str(e))
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
+    ##
+    # @brief Convert result code number to string
+    #
+    # @param i_res_code: Code ID/number
+    def res_code_to_str(self, i_res_code):
+        if(i_res_code == Bridge.RES_CODE.GD_SUCCESS):
+            return "Success"
+        if(i_res_code == Bridge.RES_CODE.GD_FAIL):
+            return "Fail"
+        if(i_res_code == Bridge.RES_CODE.GD_CMD_ID_NOT_EQUAL_IN_FLASH):
+            return "CMD ID is not equal with CMD ID found at flash on device"
+        if(i_res_code == Bridge.RES_CODE.GD_INCORRECT_CMD_ID):
+            return "Incorrect CMD ID"
+        if(i_res_code == Bridge.RES_CODE.GD_INCORRECT_DEVICE_ID):
+            return "Incorrect Device ID"
+        if(i_res_code == Bridge.RES_CODE.GD_INCORRECT_PARAMETER):
+            return "Incorrect input parameter"
+        else:
+            return "Unknown error. Please update software with device version"
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
+    ##
+    # @brief Convert data type number to string
+    #
+    # @param i_data_type: Code for data type
+    @classmethod
+    def data_type_to_str(cls, i_data_type):
+        if(i_data_type == Bridge.DATA_TYPES.char_type):
+            return "char"
+        if(i_data_type == Bridge.DATA_TYPES.float_type):
+            return "float"
+        if(i_data_type == Bridge.DATA_TYPES.int16_type):
+            return "int16"
+        if(i_data_type == Bridge.DATA_TYPES.int32_type):
+            return "int32"
+        if(i_data_type == Bridge.DATA_TYPES.int8_type):
+            return "int8"
+        if(i_data_type == Bridge.DATA_TYPES.int_type):
+            return "int (16b)"
+        if(i_data_type == Bridge.DATA_TYPES.uint16_type):
+            return "uint16"
+        if(i_data_type == Bridge.DATA_TYPES.uint32_type):
+            return "uint32"
+        if(i_data_type == Bridge.DATA_TYPES.uint8_type):
+            return "uint8"
+        if(i_data_type == Bridge.DATA_TYPES.uint_type):
+            return "uint (16b)"
+        if(i_data_type == Bridge.DATA_TYPES.void_type):
+            return "void"
+        else:
+            return "Unknown data type. Please update software with device version"
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
@@ -462,7 +519,8 @@ class Bridge():
         
         
         logger.error("[get_number_of_devices_from_device]"
-                     " Error code from AVR is not 0, but it should be!\n")
+                     " Error code from AVR is not 0, but it should be!"
+                     " Error: "+ res_code_to_str(i_rx_buffer[1]) + "\n")
         
         # Else exception - this never should happen
         raise BridgeException_Error(" Error code from AVR is not 0, but it"
@@ -546,9 +604,9 @@ class Bridge():
             # This never happen. Only one thing that may fail is wrong Device
             # ID, but this is checked before request is send. It can fail only
             # when whole protocol fail -> developer should fix this
-            message = "Device returned code: " + str(i_rx_buffer[1]) +\
-                 ". Please refer to source code what error code means."\
-                 " However this should not happen. It is seems that there is"\
+            message = "Device returned code: "\
+                 + res_code_to_str(i_rx_buffer[1]) +\
+                 " This should not happen. It is seems that there is"\
                  " some problem when transmitting or receiving data."
             logger.critical("[get_metadata_from_device]"
                             "[Uniprot RX data]"
@@ -630,6 +688,12 @@ class Bridge():
                         
             logger.warn("[get_setting_from_device]" + message)
             raise BridgeException_Error(message)
+        if(i_CMD_ID > 0xFFFF):
+            logger.warn("[get_setting_from_device]"
+                        " i_CMD_ID is longer than 2B. Protocol send just"
+                        " 2 LSB Bytes.\n")
+            i_CMD_ID = i_CMD_ID & 0xFFFF
+        
         
         # Fill TX buffer by zeros
         i_tx_buffer = [0x00]*4
@@ -638,7 +702,7 @@ class Bridge():
         # Bridge command (request ID)
         i_tx_buffer[1] = Bridge.STATE_REQUEST_GET_SETTING
         # CMD ID - must be split into two Bytes
-        i_tx_buffer[2] = (i_CMD_ID >> 8) & 0xFF
+        i_tx_buffer[2] = (i_CMD_ID >> 8)
         i_tx_buffer[3] = (i_CMD_ID)      & 0xFF
         
         
@@ -687,7 +751,8 @@ class Bridge():
             # This never happen. Only one thing that may fail is wrong Device
             # ID, but this is checked before request is send. It can fail only
             # when whole protocol fail -> developer should fix this
-            message = " Device returned code: " + str(i_rx_buffer[1]) +\
+            message = " Device returned code: "\
+                    + res_code_to_str(i_rx_buffer[1]) +\
                     ". Please refer to source code what error code means."\
                     " However this should not happen. It is seems that there"\
                     " is some problem when transmitting or receiving data."
@@ -804,7 +869,7 @@ class Bridge():
 
 #-----------------------------------------------------------------------------#
 #                                                                             #
-#-----------------------------------------------------------------------------#    
+#-----------------------------------------------------------------------------#
     # Try to set setting
     def set_setting_to_device(self, i_Device_ID, i_CMD_ID, i_value):
         # Check Device ID
@@ -839,8 +904,84 @@ class Bridge():
             logger.warn("[set_setting_from_device]"
                         + message)
             raise BridgeException_Error(message)
+        if(i_CMD_ID > 0xFFFF):
+            logger.warn("[set_setting_to_device]"
+                        " i_CMD_ID is longer than 2B. Protocol send just"
+                        " 2 LSB Bytes.\n")
+            i_CMD_ID = i_CMD_ID & 0xFFFF
         
-        return 1
+        
+        # Grab i_value and check if is maximum 4B long
+        if((i_value & 0xFFFFFFFF) < i_value):
+            logger.warn("[set_setting_to_device]"
+                        " i_value is longer than 4B."
+                        " Transmit only LSB 4Bytes.\n")
+            # Use only 4 LSB Bytes
+            i_value = i_value & 0xFFFFFFFF
+        
+        
+        # Fill TX buffer by zeros
+        i_tx_buffer = [0x00]*8
+        # Device ID
+        i_tx_buffer[0] = i_Device_ID
+        # Bridge command (request ID)
+        i_tx_buffer[1] = Bridge.STATE_REQUEST_SET_SETTING
+        # CMD ID - must be split into two Bytes
+        i_tx_buffer[2] = (i_CMD_ID >> 8)
+        i_tx_buffer[3] = (i_CMD_ID)      & 0xFF
+        # i_value - 4B - split
+        i_tx_buffer[4] = (i_value >> 24)
+        i_tx_buffer[5] = (i_value >> 16) & 0xFF
+        i_tx_buffer[6] = (i_value >>  8) & 0xFF
+        i_tx_buffer[7] =  i_value        & 0xFF
+        
+        
+        # Configure TX packet
+        Uniprot_config_TX_packet( 8 )
+        
+        # Configure RX packet
+        Uniprot_config_RX_packet( Bridge.MAX_RX_BUFFER_BYTES )
+        
+        try:
+            i_rx_buffer = self.send_request_get_data(i_tx_buffer)
+        except BridgeException_Device_not_found as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[set_setting_to_device]" + message)
+            raise BridgeException_Device_not_found(message)
+        
+        except BridgeException_NACK_fail as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[set_setting_to_device]" + message)
+            raise BridgeException_NACK_fail(message)
+        
+        except BridgeException_Device_RX_buffer_overflow as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[set_setting_to_device]" + message)
+            raise BridgeException_Device_RX_buffer_overflow(message)
+        
+        except BridgeException_Reset_fail as e:
+            message = "[send_request_get_data]" + str(e)
+            logger.error("[set_setting_to_device]" + message)
+            raise BridgeException_Reset_fail(message)
+        
+        
+        # Test if received DID is same
+        if(i_rx_buffer[0] != i_Device_ID):
+            # This should not happen.
+            message = " Got different Device ID (" + str(i_rx_buffer[0]) +\
+               "), but expected " + str(i_Device_ID) + " . This is failure of"\
+               "communication protocol.\n"
+            logger.error("[set_setting_to_device]"
+                         + message)
+            raise BridgeException_Error(message)
+            
+        # Check return code - should be 0, however it cant't
+        if(i_rx_buffer[1] != 0):
+            message = " Device returned code: "\
+                     + res_code_to_str(i_rx_buffer[1]) + "\n"
+            logger.warning("[set_setting_to_device]" + message)
+            raise BridgeException_Error(message)
+
 
 
 

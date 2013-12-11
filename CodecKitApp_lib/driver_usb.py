@@ -29,7 +29,7 @@ const_USB_DRV_VERSION = "release"
 # Note that usually there is not problem on device side, but on PC side\n
 # (depend on CPU load -> application process time -> sometimes can miss\n
 # packets)
-const_USB_TIMEOUT_MS = 5
+const_USB_TIMEOUT_MS = 8
 
 ##
 # @}
@@ -181,7 +181,7 @@ def usb_rx_data(device):
         # Instead of sleep function use simple counter
         tmp = tmp + 1
         if(tmp > timeout_cnt):
-            print("\n\n USB driver: RX timeout !!!")
+            print_if_debug_usb_driver("\n\n USB driver: RX timeout !!!")
             i_buffer_rx = [0xFF0]*8
             return i_buffer_rx
     

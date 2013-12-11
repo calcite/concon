@@ -25,23 +25,7 @@ from time import sleep
 # Keyboard events (only debug for now)
 #from msvcrt import kbhit
 
-class GET_SETTINGS_STRUCT:
-        def __init__(self):
-            self.in_type = -1
-            self.in_min = -1
-            self.in_max = -1
-            self.out_type = -1
-            self.out_min = -1
-            self.out_max = -1
-            self.out_value = -1
-            self.descriptor = ""
-        def __str__(self):
-            return "Get settings>\n IN TYPE: {0}\n IN MIN: {1}\n IN MAX: \n"\
-                "{2}\n OUT TYPE: {3}\n OUT MIN: {4}\n OUT MAX: {5}\n "\
-                "OUT VALUE: {7}\n DESCRIPTOR: {8}\n<---------------------->"\
-                .format(self.in_type,  self.in_min,  self.in_max,\
-                        self.out_type, self.out_min, self.out_max,\
-                        self.out_value, self.descriptor)
+
 
 ##
 # @brief Main function
@@ -51,6 +35,31 @@ if __name__ == '__main__':
     global const_UNI_CHAR_TAIL
     
     print("[LNAC settings] Alive!")
+    
+    """
+    crc = 0
+    crc = crc_xmodem_update(crc, 0x48)
+    crc = crc_xmodem_update(crc, 0x0)
+    crc = crc_xmodem_update(crc, 0x8)
+    crc = crc_xmodem_update(crc, 0x44)
+    crc = crc_xmodem_update(crc, 0x1)
+    crc = crc_xmodem_update(crc, 0x2)
+    crc = crc_xmodem_update(crc, 0x0)
+    crc = crc_xmodem_update(crc, 0x2)
+    crc = crc_xmodem_update(crc, 0x0)
+    crc = crc_xmodem_update(crc, 0x0)
+    crc = crc_xmodem_update(crc, 0x0)
+    crc = crc_xmodem_update(crc, 0xF)
+    crc = crc_xmodem_update(crc, 0x54)
+    
+    print(crc)
+    crc2 = crc
+    crc2 = crc_xmodem_update(crc2, crc>>8)
+    crc2 = crc_xmodem_update(crc2, crc & 0xFF)
+    
+    print(crc2)
+    exit()
+    """
     
     """
     one = GET_SETTINGS_STRUCT()
@@ -77,6 +86,20 @@ if __name__ == '__main__':
         print("Exiting....")
         exit()
     
+    print (" INIT OK\n\n\n\n")
+    
+    print(bridge.get_setting_from_device(1, 2))
+    
+    try:
+        status = bridge.set_setting_to_device(1, 2, 14)
+    except:
+        print(status)
+        print("Set settings fail")
+        exit()
+    print(status)
+    
+    
+    print(bridge.get_setting_from_device(1, 2))
     
     print("\nMAX DID: " + str(bridge.get_max_Device_ID()) + "\n")
     
