@@ -36,6 +36,8 @@ if __name__ == '__main__':
     
     print("[LNAC settings] Alive!")
     
+    
+    status = "???"
     """
     crc = 0
     crc = crc_xmodem_update(crc, 0x48)
@@ -85,27 +87,29 @@ if __name__ == '__main__':
         logger.error("[Bridge]" + str(e))
         print("Exiting....")
         exit()
-    
+        
+        
     print (" INIT OK\n\n\n\n")
     
-    print(bridge.get_setting_from_device(1, 2))
+    # Print all metadata
+    for i in range(bridge.get_max_Device_ID() +1):
+        print("Device ID:")
+        print(bridge.device_metadata[i])
     
-    try:
-        status = bridge.set_setting_to_device(1, 2, 14)
-    except:
-        print(status)
-        print("Set settings fail")
-        exit()
+    DID = 1
+    CMD = 14
+    new_val = 1
+    
+    print(bridge.get_all_settings[DID][CMD].out_value)
+    
+    
+    status = bridge.set_setting_to_device(DID, CMD, new_val)
+    
     print(status)
     
+    print(bridge.get_all_settings[DID][CMD].out_value)
     
-    print(bridge.get_setting_from_device(1, 2))
     
-    print("\nMAX DID: " + str(bridge.get_max_Device_ID()) + "\n")
-    
-    # Print metadata
-    print(bridge.device_metadata[0])
-    print(bridge.device_metadata[1])
     
     
     

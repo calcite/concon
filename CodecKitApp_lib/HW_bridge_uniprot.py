@@ -129,7 +129,7 @@ class Bridge():
             self.out_value = -1
             self.descriptor = ""
         def __str__(self):
-            return "Get setting\n DESCRIPTOR: {0}\n IN TYPE: {1}\n IN MIN:"\
+            return "Get setting\n\n DESCRIPTOR: {0}\n IN TYPE: {1}\n IN MIN:"\
                 " {2}\n IN MAX: "\
                 "{3}\n OUT TYPE: {4}\n OUT MIN: {5}\n OUT MAX: {6}\n "\
                 "OUT VALUE: {7}\n<---------------------->\n"\
@@ -265,7 +265,7 @@ class Bridge():
         for i_DID in range(self.i_num_of_devices +1):
             for i_CMD_ID in range(self.s_metadata[i_DID].MAX_CMD_ID +1):
                 logger.debug("DID: " + str(i_DID) + " | CMD: "
-                              + str(i_CMD_ID) + "  " +
+                              + str(i_CMD_ID) + "\n" +
                              str(self.s_settings_in_RAM[i_DID][i_CMD_ID]))
         
         
@@ -520,7 +520,7 @@ class Bridge():
         
         logger.error("[get_number_of_devices_from_device]"
                      " Error code from AVR is not 0, but it should be!"
-                     " Error: "+ res_code_to_str(i_rx_buffer[1]) + "\n")
+                     " Error: "+ self.res_code_to_str(i_rx_buffer[1]) + "\n")
         
         # Else exception - this never should happen
         raise BridgeException_Error(" Error code from AVR is not 0, but it"
@@ -605,7 +605,7 @@ class Bridge():
             # ID, but this is checked before request is send. It can fail only
             # when whole protocol fail -> developer should fix this
             message = "Device returned code: "\
-                 + res_code_to_str(i_rx_buffer[1]) +\
+                 + self.res_code_to_str(i_rx_buffer[1]) +\
                  " This should not happen. It is seems that there is"\
                  " some problem when transmitting or receiving data."
             logger.critical("[get_metadata_from_device]"
@@ -752,7 +752,7 @@ class Bridge():
             # ID, but this is checked before request is send. It can fail only
             # when whole protocol fail -> developer should fix this
             message = " Device returned code: "\
-                    + res_code_to_str(i_rx_buffer[1]) +\
+                    + self.res_code_to_str(i_rx_buffer[1]) +\
                     ". Please refer to source code what error code means."\
                     " However this should not happen. It is seems that there"\
                     " is some problem when transmitting or receiving data."
@@ -870,7 +870,8 @@ class Bridge():
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
-    # Try to set setting
+    # Try to set setting and if success try to read and update actual value
+    # using get setting
     def set_setting_to_device(self, i_Device_ID, i_CMD_ID, i_value):
         # Check Device ID
         if(i_Device_ID > self.i_num_of_devices):
@@ -978,16 +979,47 @@ class Bridge():
         # Check return code - should be 0, however it cant't
         if(i_rx_buffer[1] != 0):
             message = " Device returned code: "\
-                     + res_code_to_str(i_rx_buffer[1]) + "\n"
+                     + self.res_code_to_str(i_rx_buffer[1]) + "\n"
             logger.warning("[set_setting_to_device]" + message)
             raise BridgeException_Error(message)
-
+        
+        
+        # Setting was set, but program should update value -> call 
+        # get_setting_from_device and update data in RAM
+        try:
+            self.s_settings_in_RAM[i_Device_ID][i_CMD_ID] =\
+                        self.get_setting_from_device(i_Device_ID, i_CMD_ID)
+        except BridgeException_Device_not_found as e:
+            message = "[get_setting_from_device]" + str(e)
+            logger.error("[set_setting_to_device]" + message)
+            raise BridgeException_Device_not_found(message)
+        
+        except BridgeException_NACK_fail as e:
+            message = "[get_setting_from_device]" + str(e)
+            logger.error("[set_setting_to_device]" + message)
+            raise BridgeException_NACK_fail(message)
+        
+        except BridgeException_Device_RX_buffer_overflow as e:
+            message = "[get_setting_from_device]" + str(e)
+            logger.error("[set_setting_to_device]" + message)
+            raise BridgeException_Device_RX_buffer_overflow(message)
+        
+        except BridgeException_Reset_fail as e:
+            message = "[get_setting_from_device]" + str(e)
+            logger.error("[set_setting_to_device]" + message)
+            raise BridgeException_Reset_fail(message)
+        
+        
+        # If no exception occurred -> return result code as text
+        return self.res_code_to_str(i_rx_buffer[1])
 
 
 
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
+    ##
+    # Return metadata of all devices as variable
     # @property - allow to handle with s_metadata as variable
     @property
     def device_metadata(self):
@@ -995,10 +1027,18 @@ class Bridge():
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
+    ##
     # Return maximum Device_ID, witch can be used as max index for metadata
     def get_max_Device_ID(self):
         return self.i_num_of_devices
-
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
+    ##
+    # Return complex device settings as one object
+    @property
+    def get_all_settings(self):
+        return self.s_settings_in_RAM
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
