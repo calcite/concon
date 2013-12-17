@@ -66,11 +66,33 @@ class BridgeException_Error(Exception):
 # @}
 
 
+# Structure for get/set setting functions
+class SETTING_STRUCT(object):
+    def __init__(self):
+        self.in_type = -1
+        self.in_min = -1
+        self.in_max = -1
+        self.out_type = -1
+        self.out_min = -1
+        self.out_max = -1
+        self.out_value = -1
+        self.descriptor = ""
+    def __str__(self):
+        return " DESCRIPTOR: {0}\n IN TYPE: {1}\n IN MIN:"\
+               " {2}\n IN MAX: "\
+               "{3}\n OUT TYPE: {4}\n OUT MIN: {5}\n OUT MAX: {6}\n "\
+               "OUT VALUE: {7}\n"\
+               .format(self.descriptor,\
+                       Bridge.data_type_to_str(self.in_type),\
+                       self.in_min,  self.in_max,\
+                       Bridge.data_type_to_str(self.out_type),\
+                       self.out_min, self.out_max,\
+                       self.out_value)
 
 class Bridge():
     # @brief: "Constants"
-    # @{    
-    MAX_RETRY_CNT = 30
+    # @{
+    MAX_RETRY_CNT = 3
     
     # In some cases should be defined maximum size of RX buffer
     MAX_RX_BUFFER_BYTES = 65530
@@ -117,28 +139,6 @@ class Bridge():
     # @}
     
     
-    # Structure for get/set setting functions
-    class SETTING_STRUCT:
-        def __init__(self):
-            self.in_type = -1
-            self.in_min = -1
-            self.in_max = -1
-            self.out_type = -1
-            self.out_min = -1
-            self.out_max = -1
-            self.out_value = -1
-            self.descriptor = ""
-        def __str__(self):
-            return "Get setting\n\n DESCRIPTOR: {0}\n IN TYPE: {1}\n IN MIN:"\
-                " {2}\n IN MAX: "\
-                "{3}\n OUT TYPE: {4}\n OUT MIN: {5}\n OUT MAX: {6}\n "\
-                "OUT VALUE: {7}\n<---------------------->\n"\
-                .format(self.descriptor,\
-                        Bridge.data_type_to_str(self.in_type),\
-                        self.in_min,  self.in_max,\
-                        Bridge.data_type_to_str(self.out_type),\
-                         self.out_min, self.out_max,\
-                        self.out_value)
     
     
     # @brief Dynamic structure for metadata. Default should be invalid values
@@ -149,7 +149,7 @@ class Bridge():
             self.descriptor = ""
             
         def __str__(self):
-            return "Bridge\n {0}\n Serial: {1}\n Max CMD ID: {2}\n"\
+            return " {0}\n Serial: {1}\n Max CMD ID: {2}\n"\
                     "<------------------------>"\
                 .format(self.descriptor, self.serial, self.MAX_CMD_ID)
 #-----------------------------------------------------------------------------#
@@ -168,9 +168,7 @@ class Bridge():
         self.i_num_of_devices = -1;
         
         # @}
-
         
-
         
         try:
             Uniprot_init()
@@ -769,7 +767,7 @@ class Bridge():
             raise BridgeException_Error(message)
             
         # Else all seems to be OK -> fill structure
-        rx_config = Bridge.SETTING_STRUCT()
+        rx_config = SETTING_STRUCT()
         
         # Index for rx_buffer - begin at 4
         i_index_rx_buffer = 4

@@ -19,6 +19,9 @@ logger = logging.getLogger('root')
 # Universal protocol for embedded systems
 from CodecKitApp_lib.HW_bridge_uniprot import *
 
+
+from CodecKitApp_lib.bridge_config_parser import *
+
 # Time operations
 from time import sleep
 
@@ -37,49 +40,18 @@ if __name__ == '__main__':
     print("[LNAC settings] Alive!")
     
     
-    status = "???"
-    """
-    crc = 0
-    crc = crc_xmodem_update(crc, 0x48)
-    crc = crc_xmodem_update(crc, 0x0)
-    crc = crc_xmodem_update(crc, 0x8)
-    crc = crc_xmodem_update(crc, 0x44)
-    crc = crc_xmodem_update(crc, 0x1)
-    crc = crc_xmodem_update(crc, 0x2)
-    crc = crc_xmodem_update(crc, 0x0)
-    crc = crc_xmodem_update(crc, 0x2)
-    crc = crc_xmodem_update(crc, 0x0)
-    crc = crc_xmodem_update(crc, 0x0)
-    crc = crc_xmodem_update(crc, 0x0)
-    crc = crc_xmodem_update(crc, 0xF)
-    crc = crc_xmodem_update(crc, 0x54)
     
-    print(crc)
-    crc2 = crc
-    crc2 = crc_xmodem_update(crc2, crc>>8)
-    crc2 = crc_xmodem_update(crc2, crc & 0xFF)
+    cfgPars = BridgeConfigParser()
     
-    print(crc2)
+    filename="test.cfg"
+    
+    cfgPars.write_setting_to_cfg_file(filename)
+    
+    
     exit()
-    """
-    
-    """
-    one = GET_SETTINGS_STRUCT()
-    
-    one = {}
-    one[device_id] = []
-    one[device_id].append(GET_SETTINGS_STRUCT())
-    one[device_id+1] = GET_SETTINGS_STRUCT()
-    
-    one[0][setting_index].i_in_type
-    
-    arr2 = [[0 for x in range(4)] for x in range(7)]
-    
-    print(arr2)
-    """
     
     
-    
+    status = "???"
     # Bridge init
     try:
         bridge = Bridge()
