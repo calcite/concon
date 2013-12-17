@@ -336,6 +336,52 @@ class Bridge():
             return "void"
         else:
             return "Unknown data type. Please update software with device version"
+        
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
+    def getSignedNumber(self, number, bitLength):
+        mask = (2 ** bitLength) - 1
+        if number & (1 << (bitLength - 1)):
+            return number | ~mask
+        else:
+            return number & mask
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
+    ##
+    # @brief Convert variable to correct data type
+    #
+    # Because uniprot send data as byte stream it is up to this layer to
+    # retype variables back to origin type
+    # @param 
+    def retype(self, i_value, i_data_type):
+        if(i_data_type == Bridge.DATA_TYPES.char_type):
+            return str(unichr(i_value))
+        if(i_data_type == Bridge.DATA_TYPES.float_type):
+            return i_value
+        if(i_data_type == Bridge.DATA_TYPES.int16_type):
+            return self.getSignedNumber(i_value, 16)
+        if(i_data_type == Bridge.DATA_TYPES.int32_type):
+            return self.getSignedNumber(i_value, 32)
+        if(i_data_type == Bridge.DATA_TYPES.int8_type):
+            return self.getSignedNumber(i_value, 8)
+        if(i_data_type == Bridge.DATA_TYPES.int_type):
+            return self.getSignedNumber(i_value, 16)
+        if(i_data_type == Bridge.DATA_TYPES.uint16_type):
+            return i_value
+        if(i_data_type == Bridge.DATA_TYPES.uint32_type):
+            return i_value
+        if(i_data_type == Bridge.DATA_TYPES.uint8_type):
+            return i_value
+        if(i_data_type == Bridge.DATA_TYPES.uint_type):
+            return i_value
+        if(i_data_type == Bridge.DATA_TYPES.void_type):
+            return None
+        else:
+            message = "[retype] Unknown data type (" + str(i_data_type) +\
+                      ")\n"
+            logger.error(message)
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
@@ -791,6 +837,9 @@ class Bridge():
         rx_config.in_min =  rx_config.in_min +\
                             (i_rx_buffer[i_index_rx_buffer])
         i_index_rx_buffer = i_index_rx_buffer +1
+        # According to type, retype variable
+        rx_config.in_min = self.retype(rx_config.in_min, rx_config.in_type)
+        
         
         
         # IN MAX
@@ -805,7 +854,8 @@ class Bridge():
         rx_config.in_max =  rx_config.in_max +\
                             (i_rx_buffer[i_index_rx_buffer])
         i_index_rx_buffer = i_index_rx_buffer +1
-        
+        # According to type, retype variable
+        rx_config.in_max = self.retype(rx_config.in_max, rx_config.in_type)
         
         # OUT TYPE
         rx_config.out_type = i_rx_buffer[i_index_rx_buffer]
@@ -824,7 +874,8 @@ class Bridge():
         rx_config.out_min = rx_config.out_min +\
                             (i_rx_buffer[i_index_rx_buffer])
         i_index_rx_buffer = i_index_rx_buffer +1
-        
+        # According to type, retype variable
+        rx_config.out_min = self.retype(rx_config.out_min, rx_config.out_type)
         
         # OUT MAX
         rx_config.out_max = (i_rx_buffer[i_index_rx_buffer]<<24)
@@ -838,6 +889,8 @@ class Bridge():
         rx_config.out_max = rx_config.out_max +\
                             i_rx_buffer[i_index_rx_buffer]
         i_index_rx_buffer = i_index_rx_buffer +1
+        # According to type, retype variable
+        rx_config.out_max = self.retype(rx_config.out_max, rx_config.out_type)
         
         
         # OUT VALUE
@@ -852,6 +905,8 @@ class Bridge():
         rx_config.out_value =   rx_config.out_value +\
                                 i_rx_buffer[i_index_rx_buffer]
         i_index_rx_buffer   =   i_index_rx_buffer +1
+        # According to type, retype variable
+        rx_config.out_value = self.retype(rx_config.out_value, rx_config.out_type)
         
         
         # And get descriptor - do not know length

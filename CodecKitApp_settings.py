@@ -29,6 +29,7 @@ from time import sleep
 #from msvcrt import kbhit
 
 
+import struct
 
 ##
 # @brief Main function
@@ -40,6 +41,44 @@ if __name__ == '__main__':
     print("[LNAC settings] Alive!")
     
     
+    
+    """
+    i = 1082759578
+    
+    i = (66<<24) + (49<<16) + (50<<8) + (51);
+    
+    i = 0x4089999A
+    i = 0xA9999804
+    #i = 0x404e3233
+    #i = "432.3"
+    #i = struct.pack('f', -5.1)
+    array = [0x00] * 4
+    array[3] = i>>24 & 0xFF
+    array[2] = (i>>16) & 0xFF
+    array[1] = (i>>8) & 0xFF
+    array[0] = i & 0xFF
+    for i in range(4):
+        print(array[i])
+    
+    test = unichr(array[0]) + unichr(array[1]) + unichr(array[2]) + unichr(array[3])
+    print("\n Test variable:\n  "  + test)
+
+    #test = struct.unpack('f', '\xdb\x0fI@')
+    p = struct.unpack('f', "adke")
+    print(p)
+    p = struct.unpack('f', test)
+    
+    print(p)
+    #test = "123V"
+    
+    #p = struct.unpack('f', test)
+    
+    
+    #print(float(i) -1)
+    #print(p)
+    
+    exit()
+    """
     
     cfgPars = BridgeConfigParser()
     
