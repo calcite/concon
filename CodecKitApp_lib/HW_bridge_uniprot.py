@@ -31,6 +31,10 @@ import logging.config
 
 
 from uniprot import *
+
+# For binary operation
+import struct
+
 from compiler.ast import Print
 from cgi import log
 
@@ -76,13 +80,16 @@ class SETTING_STRUCT(object):
         self.out_min = -1
         self.out_max = -1
         self.out_value = -1
+        self.name = ""
         self.descriptor = ""
     def __str__(self):
-        return " DESCRIPTOR: {0}\n IN TYPE: {1}\n IN MIN:"\
-               " {2}\n IN MAX: "\
-               "{3}\n OUT TYPE: {4}\n OUT MIN: {5}\n OUT MAX: {6}\n "\
-               "OUT VALUE: {7}\n"\
-               .format(self.descriptor,\
+        return " NAME: {0}\n"\
+               " DESCRIPTOR: {1}\n IN TYPE: {2}\n IN MIN:"\
+               " {3}\n IN MAX: "\
+               "{4}\n OUT TYPE: {5}\n OUT MIN: {6}\n OUT MAX: {7}\n "\
+               "OUT VALUE: {8}\n"\
+               .format(self.name,\
+                       self.descriptor,\
                        Bridge.data_type_to_str(self.in_type),\
                        self.in_min,  self.in_max,\
                        Bridge.data_type_to_str(self.out_type),\
@@ -133,6 +140,8 @@ class Bridge():
         uint32_type =                   9
         
         float_type =                    10
+        
+        group_type =                    11
     
     
     ##
@@ -334,6 +343,8 @@ class Bridge():
             return "uint (16b)"
         if(i_data_type == Bridge.DATA_TYPES.void_type):
             return "void"
+        if(i_data_type == Bridge.DATA_TYPES.group_type):
+            return "group"
         else:
             return "Unknown data type. Please update software with device version"
         
@@ -349,6 +360,24 @@ class Bridge():
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
+    def getFloatNumber(self, number):
+        # Number split into 4 Bytes
+        array = [0x00] * 4
+        array[3] = number>>24 & 0xFF
+        array[2] = (number>>16) & 0xFF
+        array[1] = (number>>8) & 0xFF
+        array[0] = (number & 0xFF)
+        
+        # Data array to binary format and finally convert to string
+        bin = str(bytearray(array))
+        
+        # String to tuple
+        float = struct.unpack('f', bin)
+        # Tuple to float and return
+        return float[0]
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
     ##
     # @brief Convert variable to correct data type
     #
@@ -359,7 +388,7 @@ class Bridge():
         if(i_data_type == Bridge.DATA_TYPES.char_type):
             return str(unichr(i_value))
         if(i_data_type == Bridge.DATA_TYPES.float_type):
-            return i_value
+            return self.getFloatNumber(i_value)
         if(i_data_type == Bridge.DATA_TYPES.int16_type):
             return self.getSignedNumber(i_value, 16)
         if(i_data_type == Bridge.DATA_TYPES.int32_type):
@@ -377,6 +406,8 @@ class Bridge():
         if(i_data_type == Bridge.DATA_TYPES.uint_type):
             return i_value
         if(i_data_type == Bridge.DATA_TYPES.void_type):
+            return None
+        if(i_data_type == Bridge.DATA_TYPES.group_type):
             return None
         else:
             message = "[retype] Unknown data type (" + str(i_data_type) +\
@@ -695,7 +726,7 @@ class Bridge():
     
 #-----------------------------------------------------------------------------#
 #                                                                             #
-#-----------------------------------------------------------------------------#    
+#-----------------------------------------------------------------------------#
     # Try to get setting (one) from device
     def get_setting_from_device(self, i_Device_ID, i_CMD_ID):
         
@@ -908,6 +939,15 @@ class Bridge():
         # According to type, retype variable
         rx_config.out_value = self.retype(rx_config.out_value, rx_config.out_type)
         
+        
+        # Get name
+        while(i_rx_buffer[i_index_rx_buffer] != 0x00):
+            rx_config.name = rx_config.name +\
+                            str(unichr(i_rx_buffer[i_index_rx_buffer]))
+            i_index_rx_buffer = i_index_rx_buffer +1
+        
+        # move to next character (add 1)
+        i_index_rx_buffer = i_index_rx_buffer +1
         
         # And get descriptor - do not know length
         while(i_rx_buffer[i_index_rx_buffer] != 0x00):

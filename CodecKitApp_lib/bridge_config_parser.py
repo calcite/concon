@@ -53,7 +53,6 @@ class ConfigParserWithComments(ConfigParser.ConfigParser):
 
 
 
-
 class BridgeConfigParser():
     # @brief: "Constants"
     # @{
@@ -61,17 +60,26 @@ class BridgeConfigParser():
     # @}
     bridge = None
     
+    
     class SETTING_STRUCT_CHANGE_PARAM(SETTING_STRUCT):
-        def __init__(self):
-            SETTING_STRUCT.__init__()
+        def __init__(self, setting_struct=None):
+            SETTING_STRUCT.__init__(self)
+            # If parameter setting_struct exist (is given)
+            if (setting_struct):
+                # Then just update structure
+                self.__dict__.update(setting_struct.__dict__)
+            
+            # Extra variable
             self.changed = False
         def __str__(self):
-            return super(SETTING_STRUCT_CHANGE_PARAM, self).__str__() +\
-                "Changed: {0}".format(self.changed)
+            return super(BridgeConfigParser.SETTING_STRUCT_CHANGE_PARAM, self).__str__() +\
+            " Changed: {0}\n".format(self.changed)
     
     
+    ##
+    # @brief Initialize procedure
     def __init__(self):
-        logger.info(" Alive!\n")
+        self.s_cfg_settings = []
         
         
         # Try initialize Bridge
@@ -92,10 +100,44 @@ class BridgeConfigParser():
             else:
                 break
         
-        
         logger.info(" All configurations from device downloaded\n")
         
+        # Copy whole settings to array s_cfg_settings - go thru all devices
+        num_of_dev = BridgeConfigParser.bridge.get_max_Device_ID()
+        for DID in range(num_of_dev +1):
+            # Copy thru all commands
+            # Get max CMD ID for actual device
+            max_CMD_ID = BridgeConfigParser.bridge.device_metadata[DID].MAX_CMD_ID
+            
+            
+            temp = []
+            for CMD_ID in range(max_CMD_ID+1):
+                # Add loaded descriptor, data types and so on
+                temp.append(self.SETTING_STRUCT_CHANGE_PARAM(
+                    BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID]))
+                # Add (set) another extra variable. So far value was not
+                # changed
+                temp[CMD_ID].changed = False
+            
+            # And add all CMD ID for actual device to s_cfg_settings
+            self.s_cfg_settings.append(temp)
         
+        """ Algorithm for print configuration
+        """
+        for DID in range(num_of_dev+1):
+            max_CMD_ID = BridgeConfigParser.bridge.device_metadata[DID].MAX_CMD_ID
+            for CMD_ID in range(max_CMD_ID+1):
+                logger.debug(str(self.s_cfg_settings[DID][CMD_ID]))
+        # """
+        
+        logger.info(" Actual configuration saved")
+    
+    
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
+    ##
+    # @brief Write loaded settings from bridge to file
     def write_setting_to_cfg_file(self, filename):
         # Initialize config parser
         config = ConfigParserWithComments()
@@ -236,12 +278,28 @@ class BridgeConfigParser():
         logger.info("[write_setting_to_cfg_file] Data written to file\n")
         
         
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
+    ##
+    # @brief Read setting from file and 
+    def read_setting_from_file(self, filename):
+        # Initialize config parser
+        config = ConfigParser.ConfigParser()
+        
+        logger.info("[read_setting_from_file] So far nothing")
         
         
-        
-        
-        
-        
+        # Read setting by setting and compare if there is change. If yes, then
+        # write change flag which will be used for sending new setting
+        num_of_dev = BridgeConfigParser.bridge.get_max_Device_ID()
+        for DID in range(num_of_dev +1):
+            # Get max CMD ID for actual device
+            max_CMD_ID = BridgeConfigParser.bridge.device_metadata[DID].MAX_CMD_ID
+            
+            for CMD_ID in range(max_CMD_ID+1):
+                print("TEST")
+        print("EOL")
         
         
     def demo_cteni_zapis_cfg(self):
