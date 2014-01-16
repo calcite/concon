@@ -142,6 +142,20 @@ class Bridge():
         float_type =                    10
         
         group_type =                    11
+        
+    DATA_TYPE_STRS = {DATA_TYPES.void_type:   "void",
+                      DATA_TYPES.char_type:   "char",
+                      DATA_TYPES.int_type:    "int (16b)",
+                      DATA_TYPES.int8_type:   "int8",
+                      DATA_TYPES.int16_type:  "int16",
+                      DATA_TYPES.int32_type:  "int32",
+                      DATA_TYPES.uint_type:   "uint (16b)",
+                      DATA_TYPES.uint8_type:  "uint8",
+                      DATA_TYPES.uint16_type: "uint16",
+                      DATA_TYPES.uint32_type: "uint32",
+                      DATA_TYPES.float_type:  "float",
+                      DATA_TYPES.group_type:  "group"
+                      }
     
     
     ##
@@ -321,32 +335,8 @@ class Bridge():
     # @param i_data_type: Code for data type
     @classmethod
     def data_type_to_str(cls, i_data_type):
-        if(i_data_type == Bridge.DATA_TYPES.char_type):
-            return "char"
-        if(i_data_type == Bridge.DATA_TYPES.float_type):
-            return "float"
-        if(i_data_type == Bridge.DATA_TYPES.int16_type):
-            return "int16"
-        if(i_data_type == Bridge.DATA_TYPES.int32_type):
-            return "int32"
-        if(i_data_type == Bridge.DATA_TYPES.int8_type):
-            return "int8"
-        if(i_data_type == Bridge.DATA_TYPES.int_type):
-            return "int (16b)"
-        if(i_data_type == Bridge.DATA_TYPES.uint16_type):
-            return "uint16"
-        if(i_data_type == Bridge.DATA_TYPES.uint32_type):
-            return "uint32"
-        if(i_data_type == Bridge.DATA_TYPES.uint8_type):
-            return "uint8"
-        if(i_data_type == Bridge.DATA_TYPES.uint_type):
-            return "uint (16b)"
-        if(i_data_type == Bridge.DATA_TYPES.void_type):
-            return "void"
-        if(i_data_type == Bridge.DATA_TYPES.group_type):
-            return "group"
-        else:
-            return "Unknown data type. Please update software with device version"
+        return cls.DATA_TYPE_STRS.get(i_data_type,
+            "Unknown data type. Please update software with device version")
         
 #-----------------------------------------------------------------------------#
 #                                                                             #
@@ -408,7 +398,7 @@ class Bridge():
         if(i_data_type == Bridge.DATA_TYPES.void_type):
             return None
         if(i_data_type == Bridge.DATA_TYPES.group_type):
-            return None
+            return i_value
         else:
             message = "[retype] Unknown data type (" + str(i_data_type) +\
                       ")\n"

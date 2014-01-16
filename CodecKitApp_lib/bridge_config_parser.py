@@ -15,7 +15,10 @@ import logging.config
 
 from HW_bridge_uniprot import *
 
+
 import ConfigParser
+
+import re
 
 ## Load configure file for logging
 logging.config.fileConfig('config/logging_global.conf', None, False)
@@ -69,11 +72,175 @@ class BridgeConfigParser():
                 # Then just update structure
                 self.__dict__.update(setting_struct.__dict__)
             
-            # Extra variable
+            # Extra variables
+            
+            # Just for checking if variable was changed in cfg file
             self.changed = False
+            # In some cases is useful when CMD_ID is also stored in memory
+            self.CMD_ID = -1
+        
+        
         def __str__(self):
             return super(BridgeConfigParser.SETTING_STRUCT_CHANGE_PARAM, self).__str__() +\
-            " Changed: {0}\n".format(self.changed)
+            " Changed: {0}\n CMD ID: {1}\n".format(self.changed,self.CMD_ID)
+            
+        def export_to_config(self, config):
+            
+            # Create section
+            section = self.name
+            config.add_section(section)
+            
+            # If there is some descriptor -> add it!
+            if(self.descriptor != ""):
+                comment = self.descriptor
+                config.add_comment(section, comment)
+            
+            # Test for input and output type is void
+            if(
+                (self.in_type == self.out_type)
+                and
+                (self.in_type == BridgeConfigParser.bridge.DATA_TYPES.void_type)
+                ):
+                comment = "Set call_function to non zero if you want call"\
+                          " this function"
+                config.add_comment(section, comment)
+                config.set(section, "call_function", "0")
+                
+            # Else test only for input void (there is non-void output)
+            elif(self.in_type ==
+                BridgeConfigParser.bridge.DATA_TYPES.void_type):
+                comment = "OUT TYPE: {0} < {1} : {2} > | value: {3}".format(
+                          BridgeConfigParser.bridge.data_type_to_str(self.out_type),
+                          self.out_min,
+                          self.out_max,
+                          self.out_value)
+                config.add_comment(section, comment)
+                comment = "Set call_function to non zero if you want call"\
+                          " this function"
+                config.add_comment(section, comment)
+                config.set(section, "call_function", "0")
+            
+            # Test if just output type is void - again different format and comments 
+            elif(self.out_type ==
+                             BridgeConfigParser.bridge.DATA_TYPES.void_type):
+                comment = "IN TYPE: " +\
+                        BridgeConfigParser.bridge.data_type_to_str(
+                        self.in_type)\
+                        + " < " +\
+                        str(self.in_min)\
+                        + " : " +\
+                        str(self.in_max)\
+                        + " >"
+                config.add_comment(section, comment)
+                config.set(section, "value", "not changed")
+                    
+                    
+                
+            # Now compare IN TYPE and OUT TYPE and if they have same range
+            elif(
+                (self.in_type ==
+                self.out_type)
+                and
+                (self.in_min ==
+                self.out_min)
+                and
+                (self.in_max ==
+                self.out_max)
+                ):
+                # If equal - just add comment with data type, min, max and
+                # actual value
+                
+                comment = "TYPE: " +\
+                    BridgeConfigParser.bridge.data_type_to_str(
+                    self.in_type)\
+                    + " < " +\
+                    str(self.in_min)\
+                    + " : " +\
+                    str(self.in_max)\
+                    + " > | current value: " +\
+                    str(self.out_value)
+                config.add_comment(section, comment)
+                        
+                config.set(section, "value", str(self.out_value))
+                
+            # Else just write in and out type, out value
+            else:
+                comment = "IN TYPE: " +\
+                  BridgeConfigParser.bridge.data_type_to_str(
+                  self.in_type)\
+                  + " < " +\
+                  str(self.in_min)\
+                  + " : " +\
+                  str(self.in_max)\
+                  + " >"
+                config.add_comment(section, comment)
+                comment = "OUT TYPE: " +\
+                  BridgeConfigParser.bridge.data_type_to_str(
+                  self.out_type)\
+                  + " < " +\
+                  str(self.out_min)\
+                  + " : " +\
+                  str(self.out_max)\
+                  + " > | out value: " +\
+                  str(self.out_value)
+                config.add_comment(section, comment)
+                
+                config.set(section, "in_value", "not changed")
+            
+    class GroupParam(SETTING_STRUCT_CHANGE_PARAM):
+        
+        def __init__(self,setting_struct=None):
+            BridgeConfigParser.SETTING_STRUCT_CHANGE_PARAM.__init__(self, setting_struct)
+            self._choice_params = []
+
+  
+        def add_choice_param(self, param):
+            self._choice_params.append(param)
+            
+        def export_to_config(self, config):
+             # Create section
+            section = self.name
+            config.add_section(section)
+            config.add_comment(section,
+              "TYPE: {0} < {1} : {2} > | current value: {3} |"\
+              " Available choices:".format(
+                        BridgeConfigParser.bridge.data_type_to_str(self.out_type),
+                        self.out_min,
+                        self.out_max,
+                        self.out_value))
+            for choice_param in self._choice_params:
+                # Test if data type is void or not
+                if(choice_param.out_type ==
+                   BridgeConfigParser.bridge.DATA_TYPES.void_type):
+                    
+                    # Test if descriptor is empty. If yes, then show at
+                    # least name
+                    if(choice_param.descriptor == ""):
+                        config.add_comment(section, "{id}: {description}".format(
+                          description=choice_param.name,
+                          id = choice_param.CMD_ID))
+                    else:
+                        config.add_comment(section, "{id}: {description}".format(
+                          description=choice_param.descriptor,
+                          id = choice_param.CMD_ID))
+                else:
+                    # Test if descriptor is empty. If yes, then show at
+                    # least name
+                    if(choice_param.descriptor == ""):
+                        config.add_comment(section,
+                          "{id}: {description} | return: {val}".format(
+                          description=choice_param.name,
+                          id=choice_param.CMD_ID,
+                          val=choice_param.out_value))
+                    else:
+                        config.add_comment(section,
+                          "{id}: {description} | return: {val}".format(
+                          description=choice_param.descriptor,
+                          id=choice_param.CMD_ID,
+                          val=choice_param.out_value))
+            # out value
+            config.set(section, "selected_value", str(self.out_value))
+    
     
     
     ##
@@ -104,31 +271,66 @@ class BridgeConfigParser():
         
         # Copy whole settings to array s_cfg_settings - go thru all devices
         num_of_dev = BridgeConfigParser.bridge.get_max_Device_ID()
+        
         for DID in range(num_of_dev +1):
             # Copy thru all commands
             # Get max CMD ID for actual device
-            max_CMD_ID = BridgeConfigParser.bridge.device_metadata[DID].MAX_CMD_ID
             
-            
+            # Temporary array for settings
             temp = []
-            for CMD_ID in range(max_CMD_ID+1):
-                # Add loaded descriptor, data types and so on
-                temp.append(self.SETTING_STRUCT_CHANGE_PARAM(
-                    BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID]))
-                # Add (set) another extra variable. So far value was not
-                # changed
-                temp[CMD_ID].changed = False
+            
+            # Dictionary for groups (CMD_ID and "group name")
+            groups = {}
+            
+            cnt = 0
+            # Go thru all CMD_ID
+            for setting in BridgeConfigParser.bridge.get_all_settings[DID]:
+                
+                # Test if group header found
+                if (setting.in_type == \
+                        BridgeConfigParser.bridge.DATA_TYPES.group_type):
+                    # Create key in dictionary (will be filled later)
+                    tmpst = self.GroupParam(setting)
+                    groups[tmpst.name] = tmpst
+                    logger.debug(" Found group header: {0}\n".format(setting))
+                else:
+                    tmpst = self.SETTING_STRUCT_CHANGE_PARAM(setting)
+                    
+                # Anyway: always set changed variable to false (so far
+                # nothing was changed)
+                tmpst.changed = False
+                
+                tmpst.CMD_ID = cnt
+                
+                # Add to temp array
+                temp.append(tmpst)
+                
+                cnt = cnt +1
+            
+            
+            items_to_remove = []
+            for setting in temp:
+                # Compare with group pattern
+                match_result = re.match("{([a-zA-Z0-9_ ]+)}",
+                                        setting.name)
+                
+                # If match -> add actual setting move to groups
+                if (match_result):
+                    logger.debug(" Found group item:" + str(setting) + "\n")
+                    
+                    # Add group to dictionary
+                    groups[match_result.group(1)].add_choice_param(setting)
+                    items_to_remove.append(setting)
+                    
+            #Remove duplicated items (this cannot be done in the for cycle above)
+            for item in items_to_remove:
+                temp.remove(item)
+                    
             
             # And add all CMD ID for actual device to s_cfg_settings
             self.s_cfg_settings.append(temp)
         
-        """ Algorithm for print configuration
-        """
-        for DID in range(num_of_dev+1):
-            max_CMD_ID = BridgeConfigParser.bridge.device_metadata[DID].MAX_CMD_ID
-            for CMD_ID in range(max_CMD_ID+1):
-                logger.debug(str(self.s_cfg_settings[DID][CMD_ID]))
-        # """
+        
         
         logger.info(" Actual configuration saved")
     
@@ -143,132 +345,22 @@ class BridgeConfigParser():
         config = ConfigParserWithComments()
         
         
-        # Get number of devices -> for cycle 1
         num_of_dev = BridgeConfigParser.bridge.get_max_Device_ID()
         
         for DID in range(num_of_dev +1):
-            # Show metadata of HW[DID]
-            logger.info("[write_setting_to_cfg_file] Device:\n\n" +
-                         str(BridgeConfigParser.bridge.device_metadata[DID])
-                         + "\n")
-            
-            # Get max CMD ID for actual device
-            max_CMD_ID = BridgeConfigParser.bridge.device_metadata[DID].MAX_CMD_ID
-            
-            # Add command
             section = BridgeConfigParser.bridge.device_metadata[DID].descriptor
             config.add_section(section)
-            comment = "Device ID (DID): " + str(DID)
-            config.add_comment(section, comment)
+            config.add_comment(section,"Device ID (DID): " + str(DID))
             
-            # Go thru all CMD ID
-            for CMD_ID in range(max_CMD_ID +1):
-                # Write all necessary data
-                
-                # Create section
-                section = BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].descriptor
-                config.add_section(section)
-                
-                
-                
-                # Test for input and output type is void
-                if(
-                   (BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_type ==
-                   BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_type)
-                   and
-                   (BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_type ==
-                    BridgeConfigParser.bridge.DATA_TYPES.void_type)
-                   ):
-                    comment = "Set call_function to non zero if you want call"\
-                              " this function"
-                    config.add_comment(section, comment)
-                    config.set(section, "call_function", "0")
-                
-                # Else test only for input void (there is non-void output)
-                elif(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_type ==
-                     BridgeConfigParser.bridge.DATA_TYPES.void_type):
-                    comment = "OUT TYPE: " +\
-                              BridgeConfigParser.bridge.data_type_to_str(
-                              BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_type)\
-                              + " < " +\
-                              str(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_min)\
-                              + " : " +\
-                              str(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_max)\
-                              + " > | value: " + str(
-                                BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_value)
-                    config.add_comment(section, comment)
-                    comment = "Set call_function to non zero if you want call"\
-                              " this function"
-                    config.add_comment(section, comment)
-                    config.set(section, "call_function", "0")
-                
-                # Test if just output type is void - again different format and comments 
-                elif(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_type ==
-                     BridgeConfigParser.bridge.DATA_TYPES.void_type):
-                    comment = "IN TYPE: " +\
-                        BridgeConfigParser.bridge.data_type_to_str(
-                        BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_type)\
-                        + " < " +\
-                        str(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_min)\
-                        + " : " +\
-                        str(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_max)\
-                        + " >"
-                    config.add_comment(section, comment)
-                    config.set(section, "value", "not changed")
-                    
-                    
-                
-                # Now compare IN TYPE and OUT TYPE and if they have same range
-                elif(
-                   (BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_type ==
-                   BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_type)
-                   and
-                   (BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_min ==
-                    BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_min)
-                   and
-                   (BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_max ==
-                    BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_max)
-                   ):
-                    # If equal - just add comment with data type, min, max and
-                    # actual value
-                    
-                    comment = "TYPE: " +\
-                        BridgeConfigParser.bridge.data_type_to_str(
-                          BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_type)\
-                        + " < " +\
-                        str(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_min)\
-                        + " : " +\
-                        str(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_max)\
-                        + " > | origin value: " +\
-                        str(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_value)
-                    config.add_comment(section, comment)
-                        
-                    config.set(section, "value", str(
-                        BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_value))
-                    
-                # Else just write in and out type, out value
-                else:
-                    comment = "IN TYPE: " +\
-                      BridgeConfigParser.bridge.data_type_to_str(
-                      BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_type)\
-                      + " < " +\
-                      str(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_min)\
-                      + " : " +\
-                      str(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].in_max)\
-                      + " >"
-                    config.add_comment(section, comment)
-                    comment = "OUT TYPE: " +\
-                      BridgeConfigParser.bridge.data_type_to_str(
-                      BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_type)\
-                      + " < " +\
-                      str(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_min)\
-                      + " : " +\
-                      str(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_max)\
-                      + " > | out value: " +\
-                      str(BridgeConfigParser.bridge.get_all_settings[DID][CMD_ID].out_value)
-                    config.add_comment(section, comment)
-                    
-                    config.set(section, "in_value", "not changed")
+            # Go thru command by command in device (DID)
+            for setting in self.s_cfg_settings[DID]:
+                setting.export_to_config(config)
+        
+        
+        
+        
+        
+        
         
         
         # Write configuration data to file
@@ -276,8 +368,7 @@ class BridgeConfigParser():
             config.write(configfile)
         
         logger.info("[write_setting_to_cfg_file] Data written to file\n")
-        
-        
+
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
