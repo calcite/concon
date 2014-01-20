@@ -28,41 +28,32 @@ from CodecKitApp_lib.bridge_config_parser import *
 # Time operations
 from time import sleep
 
-# Keyboard events (only debug for now)
-#from msvcrt import kbhit
-
-import struct
-
 ##
 # @brief Main function
 if __name__ == '__main__':
-    
-    print("[LNAC settings] Alive!")
-    
-    """
-    
-    exit()
-    """
-    
+    # "w" for create cfg file, else read from cfg file
     rw_flag="w"
+    # Filename for cfg file
+    filename="test.cfg"
+    
+    
+    print("[LNAC settings] v0.1b Alive!")
+    
+    
     
     cfgPars = BridgeConfigParser()
     
-    filename="test.cfg"
     
     if(rw_flag == "w"):
       cfgPars.write_setting_to_cfg_file(filename)
     else:
-      cfgPars.read_setting_from_file(filename)
+      cfgPars.read_setting_from_file(filename,
+                                     ignore_errors=False,
+                                     try_fix_errors=True)
       cfgPars.write_setting_to_device()
     
-    try:
-        bridge.close()
-    except:
-        pass
-    print("[LNAC settings] Bye")
     
-    exit()
-
-
+    cfgPars.close_device()
+    
+    print("[LNAC settings] Bye")
 

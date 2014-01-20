@@ -55,18 +55,7 @@ class ConfigParserWithComments(ConfigParser.ConfigParser):
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
-
-
-
-class BridgeConfigParser():
-    # @brief: "Constants"
-    # @{
-    MAX_RETRY_CNT = 1
-    # @}
-    bridge = None
-    
-    
-    class SETTING_STRUCT_CHANGE_PARAM(SETTING_STRUCT):
+class SETTING_STRUCT_CHANGE_PARAM(SETTING_STRUCT):
         def __init__(self, setting_struct=None):
             SETTING_STRUCT.__init__(self)
             # If parameter setting_struct exist (is given)
@@ -83,7 +72,7 @@ class BridgeConfigParser():
         
         
         def __str__(self):
-            return super(BridgeConfigParser.SETTING_STRUCT_CHANGE_PARAM, self).__str__() +\
+            return super(SETTING_STRUCT_CHANGE_PARAM, self).__str__() +\
             " Changed: {0}\n CMD ID: {1}\n".format(self.changed,self.CMD_ID)
             
         def export_to_config(self, config):
@@ -179,11 +168,14 @@ class BridgeConfigParser():
                 
                 config.set(section, "in_value", "not changed")
         
-        def import_from_config(self, config):
+        def import_from_config(self, config,
+                               ignore_errors=False,
+                               try_fix_errors=False):
             # Check for error input types
             if(self.in_type == BridgeConfigParser.bridge.DATA_TYPES.group_type):
-                logger.error("[import_from_config] Invalid data type: group\n")
-                raise Exception(" Invalid data type: group. Internal error")
+                msg = " Invalid data type: group. Internal error\n"
+                logger.error("[import_from_config]" + msg)
+                raise Exception(msg)
             
             
             # Find section
@@ -236,19 +228,41 @@ class BridgeConfigParser():
                     # correct option). If not char -> user fail -> error
                     if(self.in_type != 
                        BridgeConfigParser.bridge.DATA_TYPES.char_type):
-                        msg = " Incorrect user value <"\
-                                +str(value) +\
-                                "> at option <"\
-                                +str(self.name) +\
-                                "> Expected type " +\
-                                str(Bridge.data_type_to_str(self.in_type))\
-                                + "\n"
+                        msg = " Incorrect user value <{0}> at option <{1}>"\
+                              " Expected type {2}\n".format(
+                                    value,
+                                    self.name,
+                                    Bridge.data_type_to_str(self.in_type))
                         logger.error("[import_from_config]" + msg)
+                        if(ignore_errors == False):
+                          raise Exception(msg)
                         return
                     # Else value is character -> change it!
                     else:
+                        
+                        # Test if there is more characters -> if yes, then
+                        # log problem and if needed raise exception
+                        if(ignore_errors != False):
+                          # Just inform user that there is problem
+                            msg = " In option <{0}> expected only one "\
+                                  "character, but found string. Using only "\
+                                  "first character <{1}>".format(self.name,
+                                                                 value[0])
+                            logger.warn(msg)
+                        else:
+                          # Well, else we can not let problem as it as.
+                          # Throw exception and log problem
+                          msg = " In option <{0}> expected only one "\
+                                "character, but found string!".format(
+                                                                    self.name)
+                          logger.error("[import_from_config]" + msg)
+                          raise Exception(msg)
+                        
+                        
                         # Copy just first character
                         self.out_value = value[0]
+                        
+                        # Value was changed
                         self.changed = True
                         
                         return
@@ -275,15 +289,19 @@ class BridgeConfigParser():
                 # Check for char type -> else there is problem
                 if(self.in_type != 
                    BridgeConfigParser.bridge.DATA_TYPES.char_type):
-                    msg = " Incorrect user value <"\
-                            +str(value) +\
-                            "> at option <"\
-                            +str(self.name) +\
-                            "> Expected type " +\
-                            str(Bridge.data_type_to_str(self.in_type))\
-                            + "\n"
+                    msg = " Incorrect user value <{0}> at option <{1}>. "\
+                          "Expected type: {2}\n".format(
+                                        value,
+                                        self.name,
+                                        Bridge.data_type_to_str(self.in_type))
                     logger.error("[import_from_config]" + msg)
-                    return
+                    # This problem can not be fixed. But we can ignore this
+                    # error, or raise exception
+                    if(ignore_errors == False):
+                      raise Exception(msg)
+                    # Else no exception -> just return
+                    else:
+                      return
             
             # Retype (if needed) value according to input type
             if((self.in_type != BridgeConfigParser.bridge.DATA_TYPES.float_type)
@@ -294,49 +312,65 @@ class BridgeConfigParser():
             
             # Check boundaries
             if(value < self.in_min):
-                msg = "[import_from_config] At option <" +\
-                      str(self.name) +\
-                      "> is lower value than expected!\n Expected at least " +\
-                      str(self.in_min) +\
-                      " but got " +\
-                      str(value) +\
-                      ".\n Value " +\
-                      str(self.in_min) +\
-                      " will be used instead.\n"
-                logger.warn(msg)
+              msg = " At option <{0}> is lower value than"\
+                    " expected!\n Expected at least {1} but got {2}.\n".format(
+                                                          self.name,
+                                                          self.in_min,
+                                                          value)
+              # Check if we can fix errors
+              if(try_fix_errors != False):
+                # Can fix -> use minimum -> expand message
+                msg = msg + " Value {0} will be used instead.\n".format(
+                                                                  self.in_min)
+                logger.warn("[import_from_config]" + msg)
                 value = self.in_min
+              else:
+                # Can not fix -> raise exception or just throw this setting
+                logger.error("[import_from_config]" + msg)
+                if(ignore_errors == False):
+                  # No error allowed -> Throw exception
+                  raise Exception(msg)
+                return
             
             if(value > self.in_max):
-                msg = "[import_from_config] At option <" +\
-                      str(self.name) +\
-                      "> is higher value than expected!\n Expected at most " +\
-                      str(self.in_max) +\
-                      " but got " +\
-                      str(value) +\
-                      ".\n Value " +\
-                      str(self.in_max) +\
-                      " will be used instead.\n"
-                logger.warn(msg)
+              msg = " At option <{0}> is higher value than"\
+                    " expected!\n Expected at most {1} but got {2}.\n".format(
+                                                          self.name,
+                                                          self.in_max,
+                                                          value)
+              # Check if we can fix errors
+              if(try_fix_errors != False):
+                # Can fix -> use minimum -> expand message
+                msg = msg + " Value {0} will be used instead.\n".format(
+                                                                  self.in_max)
+                logger.warn("[import_from_config]" + msg)
                 value = self.in_max
+              else:
+                # Can not fix -> raise exception or just throw this setting
+                logger.error("[import_from_config]" + msg)
+                if(ignore_errors == False):
+                  # No error allowed -> Throw exception
+                  raise Exception(msg)
+                return
             
             
             # Write value
             self.out_value = value
             # Value changed
             self.changed = True
+            
             return
             
             
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
-    class GroupParam(SETTING_STRUCT_CHANGE_PARAM):
+class GroupParam(SETTING_STRUCT_CHANGE_PARAM):
         
         def __init__(self,setting_struct=None):
-            BridgeConfigParser.SETTING_STRUCT_CHANGE_PARAM.__init__(self, setting_struct)
+            SETTING_STRUCT_CHANGE_PARAM.__init__(self, setting_struct)
             self._choice_params = []
-
-  
+            
         def add_choice_param(self, param):
             self._choice_params.append(param)
             
@@ -384,7 +418,9 @@ class BridgeConfigParser():
             # out value
             config.set(section, "selected_value", str(self.out_value))
         
-        def import_from_config(self, config):
+        def import_from_config(self, config,
+                               ignore_errors=False,
+                               try_fix_errors=False):
             # Read from section
             section = self.name
             
@@ -400,33 +436,55 @@ class BridgeConfigParser():
                                 +str(self.name) +\
                                 "> Expected type: integer\n"
                 logger.error("[import_from_config]" + msg)
+                # Check if we should raise exception or not
+                if(ignore_errors == False):
+                  raise Exception(msg)
+                
                 return
             # When value is number, then test for boundary conditions
             if(value < self.out_min):
-                msg = "[import_from_config] At option <" +\
-                      str(self.name) +\
-                      "> is lower value than expected!\n Expected at least " +\
-                      str(self.out_min) +\
-                      " but got " +\
-                      str(value) +\
-                      ".\n Value " +\
-                      str(self.out_min) +\
-                      " will be used instead.\n"
-                logger.warn(msg)
+              msg = " At option <{0}> is lower value than expected.\n"\
+                    " Expected at "\
+                    "least {1}, but got {2}.\n".format(self.name,
+                                                       out_min,
+                                                       value)
+              # Check if we could fix problem
+              if(try_fix_errors != False):
+                msg = msg + " Value {0} will be used instead.\n".format(
+                                                                self.out_min)
                 value = self.out_min
+                
+                logger.warn("[import_from_config]" + msg)
+              else:
+                # Can not fix. Log error and check if throw exception
+                logger.error("[import_from_config]" + msg)
+                if(ignore_errors == False):
+                  raise Exception(msg)
+                else:
+                  # Else ignore error. Just return
+                  return
             
             if(value > self.out_max):
-                msg = "[import_from_config] At option <" +\
-                      str(self.name) +\
-                      "> is higher value than expected!\n Expected at most " +\
-                      str(self.out_max) +\
-                      " but got " +\
-                      str(value) +\
-                      ".\n Value " +\
-                      str(self.out_max) +\
-                      " will be used instead.\n"
-                logger.warn(msg)
+              msg = " At option <{0}> is higher value than expected.\n"\
+                    " Expected at "\
+                    "most {1}, but got {2}.\n".format(self.name,
+                                                       out_max,
+                                                       value)
+              # Check if we could fix problem
+              if(try_fix_errors != False):
+                msg = msg + " Value {0} will be used instead.\n".format(
+                                                                self.out_max)
                 value = self.out_max
+                
+                logger.warn("[import_from_config]" + msg)
+              else:
+                # Can not fix. Log error and check if throw exception
+                logger.error("[import_from_config]" + msg)
+                if(ignore_errors == False):
+                  raise Exception(msg)
+                # Else ignore error. Just return
+                return
+            
             
             # OK, now value should be valid -> check if different
             if(self.out_value != value):
@@ -436,6 +494,16 @@ class BridgeConfigParser():
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
+
+
+class BridgeConfigParser():
+    # @brief: "Constants"
+    # @{
+    MAX_RETRY_CNT = 1
+    # @}
+    bridge = None
+    
+    
     ##
     # @brief Initialize procedure
     def __init__(self):
@@ -483,11 +551,11 @@ class BridgeConfigParser():
                 if (setting.in_type == \
                         BridgeConfigParser.bridge.DATA_TYPES.group_type):
                     # Create key in dictionary (will be filled later)
-                    tmpst = self.GroupParam(setting)
+                    tmpst = GroupParam(setting)
                     groups[tmpst.name] = tmpst
                     logger.debug("[Init] Found group header: {0}\n".format(setting))
                 else:
-                    tmpst = self.SETTING_STRUCT_CHANGE_PARAM(setting)
+                    tmpst = SETTING_STRUCT_CHANGE_PARAM(setting)
                     
                 # Anyway: always set changed variable to false (so far
                 # nothing was changed)
@@ -561,8 +629,21 @@ class BridgeConfigParser():
 #                                                                             #
 #-----------------------------------------------------------------------------#
     ##
-    # @brief Read setting from file and 
-    def read_setting_from_file(self, filename):
+    # @brief Read setting from file and
+    #
+    # @param filename: Name of file with extension from which settings will be
+    #                  read
+    # @param ignore_errors: When is set to non-zero value, then all errors in
+    #                  configuration are ignored, but still logged. Simply:
+    #                  when wrong configuration is detected, then just log
+    #                  error and do NOT throw exception
+    # @param try_fix_errors: When wrong configuration is occurred and there is
+    #                  chance to "fix" value (find closest to allowed range)
+    #                  then is logged only warning and value is changed to
+    #                  valid
+    def read_setting_from_file(self, filename,
+                               ignore_errors=False,
+                               try_fix_errors=False):
         # Initialize config parser
         config = ConfigParser.ConfigParser()
         
@@ -579,7 +660,9 @@ class BridgeConfigParser():
         num_of_dev = BridgeConfigParser.bridge.get_max_Device_ID()
         for DID in range(num_of_dev +1):
             for setting in self.s_cfg_settings[DID]:
-                setting.import_from_config(config)
+                setting.import_from_config(config,
+                                           ignore_errors,
+                                           try_fix_errors)
                 if(setting.changed == True):
                     logger.debug("[read_setting_from_file] Changed <{0}>"
                                  " Actual value: {1}\n".format(setting.name,
@@ -624,5 +707,9 @@ class BridgeConfigParser():
       
       logger.info("[write_setting_to_device] Device configured")
     
-
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
+    def close_device(self):
+      BridgeConfigParser.bridge.close()
 
