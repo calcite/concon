@@ -52,7 +52,9 @@ class ConfigParserWithComments(ConfigParser.ConfigParser):
             fp.write("%s\n" % (key,))
         else:
             fp.write("%s = %s\n" % (key, str(value).replace('\n', '\n\t')))
-
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
 
 
 
@@ -110,31 +112,29 @@ class BridgeConfigParser():
             elif(self.in_type ==
                 BridgeConfigParser.bridge.DATA_TYPES.void_type):
                 comment = "OUT TYPE: {0} < {1} : {2} > | value: {3}".format(
-                          BridgeConfigParser.bridge.data_type_to_str(self.out_type),
-                          self.out_min,
-                          self.out_max,
-                          self.out_value)
+                            BridgeConfigParser.bridge.data_type_to_str(
+                                                            self.out_type),
+                            self.out_min,
+                            self.out_max,
+                            self.out_value)
                 config.add_comment(section, comment)
                 comment = "Set call_function to non zero if you want call"\
                           " this function"
                 config.add_comment(section, comment)
                 config.set(section, "call_function", "0")
             
-            # Test if just output type is void - again different format and comments 
+            # Test if just output type is void - again different format and
+            # comments 
             elif(self.out_type ==
                              BridgeConfigParser.bridge.DATA_TYPES.void_type):
-                comment = "IN TYPE: " +\
-                        BridgeConfigParser.bridge.data_type_to_str(
-                        self.in_type)\
-                        + " < " +\
-                        str(self.in_min)\
-                        + " : " +\
-                        str(self.in_max)\
-                        + " >"
+                comment = "IN TYPE: {0} < {1} : {2} >".format(
+                            BridgeConfigParser.bridge.data_type_to_str(
+                                                            self.in_type),
+                            self.in_min,
+                            self.in_max)
                 config.add_comment(section, comment)
                 config.set(section, "value", "not changed")
-                    
-                    
+                
                 
             # Now compare IN TYPE and OUT TYPE and if they have same range
             elif(
@@ -150,43 +150,186 @@ class BridgeConfigParser():
                 # If equal - just add comment with data type, min, max and
                 # actual value
                 
-                comment = "TYPE: " +\
-                    BridgeConfigParser.bridge.data_type_to_str(
-                    self.in_type)\
-                    + " < " +\
-                    str(self.in_min)\
-                    + " : " +\
-                    str(self.in_max)\
-                    + " > | current value: " +\
-                    str(self.out_value)
+                comment = "TYPE: {0} < {1} : {2} > | current value: {3}".format(
+                            BridgeConfigParser.bridge.data_type_to_str(
+                                                              self.in_type),
+                            self.in_min,
+                            self.in_max,
+                            self.out_value)
+                
                 config.add_comment(section, comment)
                         
                 config.set(section, "value", str(self.out_value))
                 
             # Else just write in and out type, out value
             else:
-                comment = "IN TYPE: " +\
-                  BridgeConfigParser.bridge.data_type_to_str(
-                  self.in_type)\
-                  + " < " +\
-                  str(self.in_min)\
-                  + " : " +\
-                  str(self.in_max)\
-                  + " >"
+                comment = "IN TYPE: {0} < {1} : {2} >".format(
+                            BridgeConfigParser.bridge.data_type_to_str(
+                                                              self.in_type),
+                            self.in_min,
+                            self.in_max)
                 config.add_comment(section, comment)
-                comment = "OUT TYPE: " +\
-                  BridgeConfigParser.bridge.data_type_to_str(
-                  self.out_type)\
-                  + " < " +\
-                  str(self.out_min)\
-                  + " : " +\
-                  str(self.out_max)\
-                  + " > | out value: " +\
-                  str(self.out_value)
+                comment = "OUT TYPE: {0} < {1} : {2} > | out value: {3}".format(
+                            BridgeConfigParser.bridge.data_type_to_str(
+                                                              self.out_type),
+                            self.out_min,
+                            self.out_max,
+                            self.out_value)
                 config.add_comment(section, comment)
                 
                 config.set(section, "in_value", "not changed")
+        
+        def import_from_config(self, config):
+            # Check for error input types
+            if(self.in_type == BridgeConfigParser.bridge.DATA_TYPES.group_type):
+                logger.error("[import_from_config] Invalid data type: group\n")
+                raise Exception(" Invalid data type: group. Internal error")
             
+            
+            # Find section
+            section = self.name
+            
+            # According to actual input and output data types choose correct
+            # variable name
+            
+            # Test if input type is void
+            if(self.in_type == BridgeConfigParser.bridge.DATA_TYPES.void_type):
+                # Input and output types are void -> check if function should
+                # be called
+                value = config.get(section, "call_function")
+                if(value != "0"):
+                    # Function should be called -> value changed
+                    self.out_value = "Call function"
+                    
+                    self.changed = True
+                    
+                # Nothing to do here -> return
+                return
+            
+            # Test if just output type is void - again different format and comments 
+            elif(self.out_type==BridgeConfigParser.bridge.DATA_TYPES.void_type):
+                # Output is void, so we can not know what value was last.
+                # However if there were some change, then "value" should be
+                # different than "not changed"
+                
+                # Load value
+                value = config.get(section, "value")
+                
+                # Check if value was not changed
+                if(value == "not changed"):
+                    return
+                
+            # Test for same data types and values
+            elif((self.out_type == self.in_type) and
+                  (self.in_min == self.out_min)  and
+                  (self.in_max == self.out_max)
+                 ):
+                
+                value = config.get(section, "value")
+                # Check if value is different according to data type
+                
+                # check if value is number or string/char
+                try:
+                    value = float(value)
+                except:
+                    # If fail -> string -> check data IN TYPE with char (only
+                    # correct option). If not char -> user fail -> error
+                    if(self.in_type != 
+                       BridgeConfigParser.bridge.DATA_TYPES.char_type):
+                        msg = " Incorrect user value <"\
+                                +str(value) +\
+                                "> at option <"\
+                                +str(self.name) +\
+                                "> Expected type " +\
+                                str(Bridge.data_type_to_str(self.in_type))\
+                                + "\n"
+                        logger.error("[import_from_config]" + msg)
+                        return
+                    # Else value is character -> change it!
+                    else:
+                        # Copy just first character
+                        self.out_value = value[0]
+                        self.changed = True
+                        
+                        return
+                # Check if value and original value is same
+                if(self.out_value == value):
+                    # If they are same -> nothing to do -> return
+                    return
+                
+            # Last option: different data types are same
+            else:
+                value = config.get(section, "in_value")
+                
+                # Check if value was changed
+                if(value == "not changed"):
+                    return
+            
+            
+            # Almost done...
+            
+            try:
+                value = float(value)
+            except:
+                # When fail -> value is string
+                # Check for char type -> else there is problem
+                if(self.in_type != 
+                   BridgeConfigParser.bridge.DATA_TYPES.char_type):
+                    msg = " Incorrect user value <"\
+                            +str(value) +\
+                            "> at option <"\
+                            +str(self.name) +\
+                            "> Expected type " +\
+                            str(Bridge.data_type_to_str(self.in_type))\
+                            + "\n"
+                    logger.error("[import_from_config]" + msg)
+                    return
+            
+            # Retype (if needed) value according to input type
+            if((self.in_type != BridgeConfigParser.bridge.DATA_TYPES.float_type)
+               and
+               (self.in_type != BridgeConfigParser.bridge.DATA_TYPES.char_type)
+               ):
+                value = int(value)
+            
+            # Check boundaries
+            if(value < self.in_min):
+                msg = "[import_from_config] At option <" +\
+                      str(self.name) +\
+                      "> is lower value than expected!\n Expected at least " +\
+                      str(self.in_min) +\
+                      " but got " +\
+                      str(value) +\
+                      ".\n Value " +\
+                      str(self.in_min) +\
+                      " will be used instead.\n"
+                logger.warn(msg)
+                value = self.in_min
+            
+            if(value > self.in_max):
+                msg = "[import_from_config] At option <" +\
+                      str(self.name) +\
+                      "> is higher value than expected!\n Expected at most " +\
+                      str(self.in_max) +\
+                      " but got " +\
+                      str(value) +\
+                      ".\n Value " +\
+                      str(self.in_max) +\
+                      " will be used instead.\n"
+                logger.warn(msg)
+                value = self.in_max
+            
+            
+            # Write value
+            self.out_value = value
+            # Value changed
+            self.changed = True
+            return
+            
+            
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
     class GroupParam(SETTING_STRUCT_CHANGE_PARAM):
         
         def __init__(self,setting_struct=None):
@@ -240,9 +383,59 @@ class BridgeConfigParser():
                           val=choice_param.out_value))
             # out value
             config.set(section, "selected_value", str(self.out_value))
-    
-    
-    
+        
+        def import_from_config(self, config):
+            # Read from section
+            section = self.name
+            
+            value = config.get(section, "selected_value")
+            
+            # Should be expected integer value -> test it!
+            try:
+                value = int(value)
+            except:
+                msg = " Incorrect user value <"\
+                                +str(value) +\
+                                "> at option <"\
+                                +str(self.name) +\
+                                "> Expected type: integer\n"
+                logger.error("[import_from_config]" + msg)
+                return
+            # When value is number, then test for boundary conditions
+            if(value < self.out_min):
+                msg = "[import_from_config] At option <" +\
+                      str(self.name) +\
+                      "> is lower value than expected!\n Expected at least " +\
+                      str(self.out_min) +\
+                      " but got " +\
+                      str(value) +\
+                      ".\n Value " +\
+                      str(self.out_min) +\
+                      " will be used instead.\n"
+                logger.warn(msg)
+                value = self.out_min
+            
+            if(value > self.out_max):
+                msg = "[import_from_config] At option <" +\
+                      str(self.name) +\
+                      "> is higher value than expected!\n Expected at most " +\
+                      str(self.out_max) +\
+                      " but got " +\
+                      str(value) +\
+                      ".\n Value " +\
+                      str(self.out_max) +\
+                      " will be used instead.\n"
+                logger.warn(msg)
+                value = self.out_max
+            
+            # OK, now value should be valid -> check if different
+            if(self.out_value != value):
+                self.out_value = value
+                
+                self.changed = True
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
     ##
     # @brief Initialize procedure
     def __init__(self):
@@ -292,7 +485,7 @@ class BridgeConfigParser():
                     # Create key in dictionary (will be filled later)
                     tmpst = self.GroupParam(setting)
                     groups[tmpst.name] = tmpst
-                    logger.debug(" Found group header: {0}\n".format(setting))
+                    logger.debug("[Init] Found group header: {0}\n".format(setting))
                 else:
                     tmpst = self.SETTING_STRUCT_CHANGE_PARAM(setting)
                     
@@ -316,7 +509,8 @@ class BridgeConfigParser():
                 
                 # If match -> add actual setting move to groups
                 if (match_result):
-                    logger.debug(" Found group item:" + str(setting) + "\n")
+                    logger.debug("[Init][Search groups] Found group item:"
+                                  + str(setting) + "\n")
                     
                     # Add group to dictionary
                     groups[match_result.group(1)].add_choice_param(setting)
@@ -330,11 +524,11 @@ class BridgeConfigParser():
             # And add all CMD ID for actual device to s_cfg_settings
             self.s_cfg_settings.append(temp)
         
+        for DID in range(num_of_dev +1):
+          for setting in BridgeConfigParser.bridge.get_all_settings[DID]:
+            logger.debug("[Init][Summary] {0}".format(setting))
         
-        
-        logger.info(" Actual configuration saved")
-    
-    
+        logger.info(" Actual configuration saved\n")
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
@@ -351,24 +545,18 @@ class BridgeConfigParser():
             section = BridgeConfigParser.bridge.device_metadata[DID].descriptor
             config.add_section(section)
             config.add_comment(section,"Device ID (DID): " + str(DID))
+            config.add_comment(section,"Serial number: {0}".format(
+                      BridgeConfigParser.bridge.device_metadata[DID].serial))
             
             # Go thru command by command in device (DID)
             for setting in self.s_cfg_settings[DID]:
                 setting.export_to_config(config)
-        
-        
-        
-        
-        
-        
-        
         
         # Write configuration data to file
         with open(filename, 'wb') as configfile:
             config.write(configfile)
         
         logger.info("[write_setting_to_cfg_file] Data written to file\n")
-
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
@@ -378,43 +566,63 @@ class BridgeConfigParser():
         # Initialize config parser
         config = ConfigParser.ConfigParser()
         
-        logger.info("[read_setting_from_file] So far nothing")
+        status = config.read(filename)
+        if(not status):
+          msg = " Configuration file not found!"
+          logger.error("[read_setting_from_file][config.read]" + msg)
+          raise Exception(msg)
         
+        logger.info("[read_setting_from_file] Configuration file opened\n")
         
         # Read setting by setting and compare if there is change. If yes, then
         # write change flag which will be used for sending new setting
         num_of_dev = BridgeConfigParser.bridge.get_max_Device_ID()
         for DID in range(num_of_dev +1):
-            # Get max CMD ID for actual device
-            max_CMD_ID = BridgeConfigParser.bridge.device_metadata[DID].MAX_CMD_ID
-            
-            for CMD_ID in range(max_CMD_ID+1):
-                print("TEST")
-        print("EOL")
+            for setting in self.s_cfg_settings[DID]:
+                setting.import_from_config(config)
+                if(setting.changed == True):
+                    logger.debug("[read_setting_from_file] Changed <{0}>"
+                                 " Actual value: {1}\n".format(setting.name,
+                                                             setting.out_value))
         
-        
-    def demo_cteni_zapis_cfg(self):
-        config.add_section('CDE')
-        config.set('CDE', 'DESCRIPTOR', 'Some device with some functions')
-        config.set('CDE', 'VAL', '213')
-        
-        config.add_section('Func1')
-        config.set('Func1', 'DESCRIPTOR', 'Hidden Game')
-        config.set('Func1', 'VAL dsd', '6543')
-        
-        
-        with open('test.cfg', 'wb') as configfile:
-            config.write(configfile)
-        
-        
-        logger.info("Write done\n")
-        
-        config.read('test.cfg')
-        print( config.get('CDE', 'DESCRIPTOR'))
-        print( config.get('Func1', 'VAL dsd'))
-        
-        num = config.getint('Func1', 'VAL dsd')
-        num = num + 1
-        print( num )
-        
-        logger.info("Read done\n")
+        logger.info("[read_setting_from_file] All configuration items read\n")
+#-----------------------------------------------------------------------------#
+#                                                                             #
+#-----------------------------------------------------------------------------#
+    ##
+    # @brief Read processed s_cfg_settings and if there are any changes, then
+    # will be send to AVR
+    def write_setting_to_device(self):
+      # Go thru all settings and check if "changed" flag is set
+      num_of_dev = BridgeConfigParser.bridge.get_max_Device_ID()
+      for DID in range(num_of_dev +1):
+        for setting in self.s_cfg_settings[DID]:
+          if(setting.changed == True):
+            # Test if actual setting is normal item or group header
+            if(setting.in_type == BridgeConfigParser.bridge.DATA_TYPES.group_type):
+              # Group changed -> use CMD ID. Any other value is not needed
+              # Device ID, Command ID, value=0 (not needed to write, default)
+              BridgeConfigParser.bridge.set_setting_to_device(
+                                                            DID,
+                                                            setting.out_value)
+              msg = "[write_setting_to_device] In group "
+              msg = msg +"<{0}> was selected option {1}\n".format(
+                                                            setting.name,
+                                                            setting.out_value)
+              logger.debug(msg)
+            else:
+              BridgeConfigParser.bridge.set_setting_to_device(
+                                                      DID,
+                                                      setting.CMD_ID,
+                                                      setting.out_value)
+              msg = "[write_setting_to_device] In item "
+              msg = msg + "<{0}> was changed value to: {1}".format(
+                                                      setting.name,
+                                                      setting.out_value)
+              logger.debug(msg)
+      
+      
+      logger.info("[write_setting_to_device] Device configured")
+    
+
+

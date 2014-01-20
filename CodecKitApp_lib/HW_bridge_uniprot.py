@@ -955,7 +955,7 @@ class Bridge():
 #-----------------------------------------------------------------------------#
     # Try to set setting and if success try to read and update actual value
     # using get setting
-    def set_setting_to_device(self, i_Device_ID, i_CMD_ID, i_value):
+    def set_setting_to_device(self, i_Device_ID, i_CMD_ID, i_value=0):
         # Check Device ID
         if(i_Device_ID > self.i_num_of_devices):
             message = " Invalid Device ID. "
@@ -995,14 +995,74 @@ class Bridge():
             i_CMD_ID = i_CMD_ID & 0xFFFF
         
         
-        # Grab i_value and check if is maximum 4B long
-        if((i_value & 0xFFFFFFFF) < i_value):
-            logger.warn("[set_setting_to_device]"
-                        " i_value is longer than 4B."
-                        " Transmit only LSB 4Bytes.\n")
-            # Use only 4 LSB Bytes
-            i_value = i_value & 0xFFFFFFFF
         
+        # According to data type convert data
+        data_type = self.s_settings_in_RAM[i_Device_ID][i_CMD_ID].in_type
+        
+        # GROUP TYPE
+        if(data_type == self.DATA_TYPES.group_type):
+          # Well, this should not happen. To group we should not send any data.
+          # OK, so for now just we will ignore value and just send warning to
+          # log, because it is not big deal. Maybe in new version will be
+          # device capable receive group messages.
+          logger.warn("[set_setting_to_device] You are trying send data to"
+                      "data type group!\n It is not forbidden, however in this"
+                      "version it is not recommended!\n Please double check"
+                      "firmware version. Or maybe it is just bug.")
+        
+        # VOID TYPE
+        # Better than mess transmit zeros
+        elif(data_type == self.DATA_TYPES.void_type):
+          i_value = 0
+        
+        # CHAR TYPE
+        elif(data_type == self.DATA_TYPES.char_type):
+          # If char type recalculate to number - this is pretty easy
+          i_value = ord(i_value[0])
+          
+        # FLOAT TYPE
+        elif(data_type == self.DATA_TYPES.float_type):
+          i_value = struct.pack("f", i_value)
+          i_value = bytearray(i_value)
+          i_value = (i_value[3]<<24)+(i_value[2]<<16)+(i_value[1]<<8)+(i_value[0])
+          
+        # UINT* TYPES
+        elif((data_type == self.DATA_TYPES.uint_type) or
+             (data_type == self.DATA_TYPES.uint8_type) or
+             (data_type == self.DATA_TYPES.uint16_type) or
+             (data_type == self.DATA_TYPES.uint32_type)):
+          # Check sign
+          if(i_value < 0):
+            # Well, value should be unsigned. In the end it really does not
+            # matter, but it could be a mistake somewhere. At least log warning
+            logger.warn("[set_setting_to_device] Value is negative, but it "
+                        "should be only positive (because data type is"
+                        " unsinged). Value will be transmitted, but in device"
+                        "device will be used as unsigned!\n")
+        # INT and UINT TYPES
+        else:
+            msg_wide_variable = "[set_setting_to_device] Value is wider" +\
+                                " than maximum. Application send only low "
+          
+            if(data_type == self.DATA_TYPES.uint32_type):
+              if(i_value > 0xFFFFFFFF):
+                i_value = i_value & 0xFFFFFFFF
+                logger.warn(msg_wide_variable + "4 Bytes")
+            # Check number size (16b)
+            elif((data_type == self.DATA_TYPES.uint_type) or
+               (data_type == self.DATA_TYPES.uint16_type)):
+              if(i_value > 0xFFFF):
+                i_value = i_value & 0xFFFF
+                logger.warn(msg_wide_variable + "2 Bytes")
+            # Check number size (8b)
+            else:
+              if(i_value > 0xFF):
+                i_value = i_value & 0xFF
+                logger.warn(msg_wide_variable + "1 Byte")
+        
+        
+        logger.debug("[set_setting_to_device] Value to send: {0}".format(
+                                                                    i_value))
         
         # Fill TX buffer by zeros
         i_tx_buffer = [0x00]*8

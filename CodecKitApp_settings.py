@@ -16,6 +16,9 @@ import logging.config
 
 logger = logging.getLogger('root')
 
+import re
+
+
 # Universal protocol for embedded systems
 from CodecKitApp_lib.HW_bridge_uniprot import *
 
@@ -28,36 +31,30 @@ from time import sleep
 # Keyboard events (only debug for now)
 #from msvcrt import kbhit
 
+import struct
 
 ##
 # @brief Main function
 if __name__ == '__main__':
     
     print("[LNAC settings] Alive!")
+    
     """
     
     exit()
     """
+    
+    rw_flag="w"
+    
     cfgPars = BridgeConfigParser()
     
     filename="test.cfg"
     
-    cfgPars.write_setting_to_cfg_file(filename)
-    #cfgPars.read_setting_from_file(filename)
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    if(rw_flag == "w"):
+      cfgPars.write_setting_to_cfg_file(filename)
+    else:
+      cfgPars.read_setting_from_file(filename)
+      cfgPars.write_setting_to_device()
     
     try:
         bridge.close()
@@ -68,6 +65,4 @@ if __name__ == '__main__':
     exit()
 
 
-#    for i in i_buffer_rx:
-#        print("RXD {0} | {1} | {2}".format(hex(i), str(unichr(i)), i ))
 
