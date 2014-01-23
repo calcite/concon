@@ -516,17 +516,22 @@ class BridgeConfigParser():
             retry_cnt = retry_cnt +1
             
             if(retry_cnt > BridgeConfigParser.MAX_RETRY_CNT):
-                logger.critical("[__init__] Can not initialize Bridge\n")
+                logger.critical("[__init__]"
+                                " Can not initialize Bridge\n")
                 raise Exception(" Can not initialize Bridge")
             
             
             try:
-                BridgeConfigParser.bridge = Bridge()
+              BridgeConfigParser.bridge = Bridge()
+            
             except Exception as e:
-                logger.error("[Bridge]" + str(e))
+                logger.error("[__init__][Bridge]" + str(e))
                 continue
+            
             else:
                 break
+            
+            
         
         logger.info(" All configurations from device downloaded\n")
         
@@ -577,7 +582,7 @@ class BridgeConfigParser():
                 
                 # If match -> add actual setting move to groups
                 if (match_result):
-                    logger.debug("[Init][Search groups] Found group item:"
+                    logger.debug("[__init__][Search groups] Found group item:"
                                   + str(setting) + "\n")
                     
                     # Add group to dictionary
@@ -594,7 +599,7 @@ class BridgeConfigParser():
         
         for DID in range(num_of_dev +1):
           for setting in BridgeConfigParser.bridge.get_all_settings[DID]:
-            logger.debug("[Init][Summary] {0}".format(setting))
+            logger.debug("[__init__][Summary] {0}".format(setting))
         
         logger.info(" Actual configuration saved\n")
 #-----------------------------------------------------------------------------#

@@ -244,6 +244,11 @@ class Bridge():
                 logger.critical("[__init__][Get metadata]" + str(e))
                 raise BridgeException_Reset_fail("[Get metadata]" + str(e))
         
+        
+        # Show devices thru saved metadata
+        for i in range(self.i_num_of_devices +1):
+          logger.info("[__init__]" + str(self.s_metadata[i]))
+        
         # Load actual configuration from device to RAM
         self.s_settings_in_RAM = []
         
@@ -254,8 +259,9 @@ class Bridge():
             temp = []
             for i_CMD_ID in range(self.s_metadata[i_DID].MAX_CMD_ID +1):
                 try:
-                    temp.append(
+                  temp.append(
                             self.get_setting_from_device(i_DID, i_CMD_ID))
+                
                 # And check all exceptions
                 except BridgeException_Device_not_found as e:
                     logger.error("[__init__][Get setting]" + str(e))
@@ -274,6 +280,9 @@ class Bridge():
                 except BridgeException_Reset_fail as e:
                     logger.critical("[__init__][Get setting]" + str(e))
                     raise BridgeException_Reset_fail("[Get setting]" + str(e))
+                
+                except Exception as e:
+                    logger.error("[__init__][Get setting] " + str(e))
                 
                 # If OK, then show info
                 logger.info("[__init__][Get setting] "
@@ -299,6 +308,7 @@ class Bridge():
     def close(self):
         try:
             Uniprot_close()
+            logger.info("[close] Device closed")
         except UniprotException_Device_not_found as e:
             # Even if this exception occurs, program can re-initialize device
             # if needed
@@ -459,7 +469,11 @@ class Bridge():
                     logger.warn("[send_request_get_data]"
                                 "[Uniprot TX data]"
                                 + str(e))
-                    # Send data once again
+                    # Send data once again, but first clear input buffers.
+                    # Wait until 5 dummy time-out packets received
+                    Uniprot_USB_clear_rx_buffer(5)
+                    
+                    # And then try 
                     i_retry_cnt = i_retry_cnt + 1
                     if(i_retry_cnt > Bridge.MAX_RETRY_CNT):
                         logger.critical("[send_request_get_data]"
@@ -493,7 +507,11 @@ class Bridge():
                 except UniprotException_Reset_success as e:
                     logger.warn("[send_request_get_data][Uniprot RX data]"
                                  + str(e))
-                    # Send data once again
+                    
+                    # Send data once again, but first clear input buffers.
+                    # Wait until 5 dummy time-out packets received
+                    Uniprot_USB_clear_rx_buffer(5)
+                    
                     i_retry_cnt = i_retry_cnt + 1
                     if(i_retry_cnt > Bridge.MAX_RETRY_CNT):
                         logger.critical("[send_request_get_data]"
@@ -938,6 +956,7 @@ class Bridge():
         
         # move to next character (add 1)
         i_index_rx_buffer = i_index_rx_buffer +1
+        
         
         # And get descriptor - do not know length
         while(i_rx_buffer[i_index_rx_buffer] != 0x00):

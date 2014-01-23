@@ -47,7 +47,7 @@ const_USB_VID = 0x03EB
 
 const_USB_PID = 0x204F
 
-const_UNI_MAX_NACK_RETRY_COUNT = 20
+const_UNI_MAX_NACK_RETRY_COUNT = 10
 
 const_UNI_RES_CODE_CRC_ERROR = "CRC ERROR"
 
@@ -174,6 +174,7 @@ def Uniprot_init():
     
     if(device == 404):
         raise UniprotException_Device_not_found(" Device not found!\n")
+    
 
 
 ##
@@ -249,7 +250,7 @@ def Uni_process_rx_status_data(buffer_rx):
     crc16 = crc_xmodem_update(crc16, buffer_rx[0])
     crc16 = crc_xmodem_update(crc16, buffer_rx[1])
     crc16 = crc_xmodem_update(crc16, buffer_rx[2])
-    logger.debug("CRC result: " + str(crc16) + "\n\n")
+    logger.debug("[Uni_process_rx_status_data] CRC result: " + str(crc16) + "\n\n")
     
     if(crc16 != 0):
         return const_UNI_RES_CODE_CRC_ERROR
@@ -280,6 +281,8 @@ def Uni_process_rx_status_data(buffer_rx):
 def Uniprot_USB_tx_command( const_UNI_CHAR_CMD ):
     global device
     global const_UNI_CHAR_RESET
+    global const_UNI_CHAR_ACK
+    
     
     
     # Initialize crc16 value
@@ -310,6 +313,10 @@ def Uniprot_USB_tx_command( const_UNI_CHAR_CMD ):
         i_buffer_tx[6] = const_UNI_CHAR_RESET
         i_buffer_tx[7] = const_UNI_CHAR_RESET
     
+    # Check if not ACK -> else probably error -> clear input buffers
+    if( const_UNI_CHAR_CMD != const_UNI_CHAR_ACK):
+      # Clear input buffer (just for case)
+      Uniprot_USB_clear_rx_buffer(3)
     
     # Buffer is ready, send data
     usb_tx_data(device, i_buffer_tx)
@@ -472,16 +479,8 @@ def Uniprot_USB_tx_data( i_tx_data ):
          ):
         
         # RX all data and throw them - clean buffers
-        i_pattern_tmp = [0xFF0]*8
         logger.debug("[Uniprot_USB_tx_data] Throwing data....\n")
-        i_throw_cnt = 0
-        while(1):
-            i_rx_tmp = usb_rx_data(device)
-            logger.debug("[Uniprot_USB_tx_data] Throw data:" + str(i_rx_tmp) + "\n\n")
-            if(i_pattern_tmp == i_rx_tmp):
-                i_throw_cnt = i_throw_cnt +1
-                if(i_throw_cnt >= 3):
-                    break
+        Uniprot_USB_clear_rx_buffer()
         
         # Confirm, that all data was received (send ACK)
         try:
@@ -645,10 +644,11 @@ def Uniprot_USB_try_rx_data():
         crc16 = crc_xmodem_update(crc16, i_buffer_rx_8[2])
         crc16 = crc_xmodem_update(crc16, i_buffer_rx_8[3])
     else:
-        # If correct header is not found, then return NACK
+        # If correct header is not found, return NACK
         logger.debug("[Uniprot_USB_try_rx_data]"
                      " Header not found. NACK\n"
-                     + str(i_buffer_rx)) 
+                     + str(i_buffer_rx))
+        
         return const_UNI_RES_CODE_NACK
         
         
@@ -703,8 +703,20 @@ def Uniprot_USB_try_rx_data():
             logger.debug("[Uniprot_USB_try_rx_data] Before USB RX\n")
             i_buffer_rx_8 = usb_rx_data(device)
             
+            # Check data if are correct (not higher than 255 -> timeout)
+            if(i_buffer_rx_8[0] >255):
+              # Clear buffer
+              Uniprot_USB_clear_rx_buffer(3)
+              # log problem
+              logger.warn("[Uniprot_USB_try_rx_data] Data in buffer >255"
+                          " (packet time out)")
+              # Return NACK (problem in communication)
+              return const_UNI_RES_CODE_NACK
+              
+            
             logger.debug("[Uniprot_USB_try_rx_data] RAW uniprot data"
                          ":\n" + str(i_buffer_rx_8) + "\n")
+            
         
         # Reset i_buffer_rx_8_index
         i_buffer_rx_8_index = 0
@@ -824,7 +836,25 @@ def Uniprot_USB_rx_data():
 
 
 
-
+##
+# @brief Clear USB RX buffer
+#
+# @param num_of_empty_buffers: Define how many times must receive "timeout"
+#                              data, before end this function
+def Uniprot_USB_clear_rx_buffer(num_of_empty_buffers=2):
+  i_pattern_tmp = [0xFF0]*8
+  i_throw_cnt = 0
+  while(1):
+    # Get data
+    i_rx_tmp = usb_rx_data(device)
+    logger.debug("[Uniprot_USB_clear_rx_buffer] Throw data:"
+                  + str(i_rx_tmp) + "\n\n")
+    # Check if in buffer are dummy data (usually >255)
+    if(i_pattern_tmp == i_rx_tmp):
+        i_throw_cnt = i_throw_cnt +1
+        # If > limit -> break
+        if(i_throw_cnt >= num_of_empty_buffers):
+            break
 
 
 
