@@ -446,7 +446,7 @@ class GroupParam(SETTING_STRUCT_CHANGE_PARAM):
               msg = " At option <{0}> is lower value than expected.\n"\
                     " Expected at "\
                     "least {1}, but got {2}.\n".format(self.name,
-                                                       out_min,
+                                                       self.out_min,
                                                        value)
               # Check if we could fix problem
               if(try_fix_errors != False):
@@ -710,7 +710,7 @@ class BridgeConfigParser():
               logger.debug(msg)
       
       
-      logger.info("[write_setting_to_device] Device configured")
+      logger.info("[write_setting_to_device] Device configured\n")
     
 #-----------------------------------------------------------------------------#
 #                                                                             #
