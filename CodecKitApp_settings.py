@@ -23,6 +23,9 @@ from CodecKitApp_lib.HW_bridge_uniprot import *
 
 from CodecKitApp_lib.bridge_config_parser import *
 
+# REMOVE
+from CodecKitApp_lib.crc16_xmodem import *
+
 # Time operations
 from time import sleep
 
@@ -32,14 +35,22 @@ if __name__ == '__main__':
     # "w" for create cfg file, else read from cfg file
     rw_flag="w"
     
+    
     # Filename for cfg file
-    filename="test.cfg"
+    if(rw_flag == "w"):
+      # Create file
+      filename="test2.cfg"
+    else:
+      # Read from file
+      filename="test.cfg"
     
     
     
     
     
     print("[LNAC settings] v0.1b Alive!")
+    
+    
     
     # Initialize Bridge (also download all data from AVR)
     cfgPars = BridgeConfigParser()

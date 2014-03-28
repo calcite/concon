@@ -194,7 +194,9 @@ class Bridge():
         
         
         try:
+            logger.debug("[__init__] Trying initialize uniprot")
             Uniprot_init()
+            logger.debug("[__init__] Getting num. of devices")
             self.get_number_of_devices_from_device()
             
         except UniprotException_Device_not_found as e:
@@ -225,6 +227,7 @@ class Bridge():
         self.s_metadata = []
         for i in range(self.i_num_of_devices +1):
             try:
+                logger.debug("[__init__] Getting metadata from device")
                 self.s_metadata.append(self.get_metadata_from_device(i))
             except BridgeException_Device_not_found as e:
                 logger.error("[__init__][Get metadata]" + str(e))
@@ -259,6 +262,8 @@ class Bridge():
             temp = []
             for i_CMD_ID in range(self.s_metadata[i_DID].MAX_CMD_ID +1):
                 try:
+                  logger.debug("[__init__] Trying to get setting from device"
+                               "{0} (CMD: {1})".format(i_DID, i_CMD_ID))
                   temp.append(
                             self.get_setting_from_device(i_DID, i_CMD_ID))
                 
