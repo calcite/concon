@@ -18,13 +18,11 @@ logger = logging.getLogger('root')
 
 
 # Universal protocol for embedded systems
-from CodecKitApp_lib.HW_bridge_uniprot import *
+# from CodecKitApp_lib.HW_bridge_uniprot import *
 
 
 from CodecKitApp_lib.bridge_config_parser import *
 
-# REMOVE
-from CodecKitApp_lib.crc16_xmodem import *
 
 # Time operations
 from time import sleep
@@ -51,7 +49,6 @@ if __name__ == '__main__':
     print("[LNAC settings] v0.1b Alive!")
     
     
-    
     # Initialize Bridge (also download all data from AVR)
     cfgPars = BridgeConfigParser()
     
@@ -73,6 +70,7 @@ if __name__ == '__main__':
     
     
     cfgPars.close_device()
+    
     
     print("[LNAC settings] Bye")
 

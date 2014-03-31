@@ -8,11 +8,8 @@
 # Use pyWinUSB library for python and use shortcut "hid"
 import pywinusb.hid as hid
 
-# Time operations
-from time import sleep
-
-# Threading
-import threading
+# Queue - FIFO/LIFO memory for multi-thread applications
+import Queue
 
 
 ##
@@ -27,29 +24,19 @@ const_USB_DRV_VERSION = "release"
 #
 # Note that usually there is not problem on device side, but on PC side\n
 # (depend on CPU load -> application process time -> sometimes can miss\n
-# packets). Value 0 set timeout to infinity (Useful only for debug)
-const_USB_TIMEOUT_MS = 8
-#const_USB_TIMEOUT_MS = 0
+# packets). So there is some timeout so application will not hang on.
+const_USB_TIMEOUT_MS = 50
 
 ##
 # @}
-
-
 
 
 ##
 # @brief Global variables
 # @{
 
-##
-# @brief For data from device
-# When receiving data from device it is called function, that fill this\n
-# global variable
-i_data_in = [0x00]*8
-
-##
-# @brief For semaphore blocking - for now value is None
-event = None
+# Queue object
+rx_buff = None
 
 
 
@@ -65,28 +52,9 @@ def print_if_debug_usb_driver( string ):
 # @brief Callback function for "set_raw_data_handler"
 def in_sample_handler(data):
     # Write data to global variable
-    global i_data_in
-    # Need to copy data, not just point to them"
-    i_data_in = data[1:]
-    
-    # Unlock 
-    event.set()
-"""
-    
-    for i in range(8):
-        # Write from index 1 -> in index 0 is report_id 
-        i_data_in[i] = data[i+1]
-    
-    # Print number in hex if in debug mode
-    print_if_debug_usb_driver("+-------------------------------")
-    for i in range(8):
-       print_if_debug_usb_driver("| Udrv RX:{0}|{1}|{2}".format(
-                                                          i,
-                                                          hex(data[i+1]),
-                                                          unichr(data[i+1])))
-"""
-
-
+    global rx_buff
+    # Save data
+    rx_buff.put(data, 1)
 
 
 
@@ -97,12 +65,7 @@ def in_sample_handler(data):
 # @param VID: Vendor ID
 # @param PID: Product ID 
 def usb_open_device(VID, PID):
-    global event
-    
-    # Prepare semaphore
-    event = threading.Event()
-    # Clear - for now block RX data
-    event.clear()
+    global rx_buff
     
     # Try open device
     try:
@@ -119,6 +82,8 @@ def usb_open_device(VID, PID):
         print_if_debug_usb_driver("Device not found."
                                   " Please make sure that device is connected")
         device = 404
+    # OK, device opened. So use queue FIFO buffer. Size is 256 [objects]
+    rx_buff = Queue.Queue(256)
     return device
 
 ##
@@ -177,33 +142,20 @@ def usb_tx_data(device, data_8bit):
 # function usb_open_device
 
 def usb_rx_data(device):
-    global i_data_in
     global const_USB_TIMEOUT_MS
+    global rx_buff
     
+    data = [0x00]*8
     
+    # OK, try to get data
+    try:
+      data = rx_buff.get(1, (const_USB_TIMEOUT_MS*0.001))
+    except:
+      # Timeout
+      print_if_debug_usb_driver("USB RX timeout!")
+      data = [0xFF0]*8
+      return data
     
-    # Reset counter
-    cnt = 0
-    # Wait for data
-    while(1):
-      # Wait 1ms, or less
-      event.wait(0.001)
-      
-      # Check if data received
-      if(True == event.isSet()):
-        # Lock again
-        event.clear()
-        # If flag is set -> break
-        break
-      
-      cnt = cnt +1
-      if((cnt > const_USB_TIMEOUT_MS) and (const_USB_TIMEOUT_MS != 0)):
-        print_if_debug_usb_driver("USB RX timeout!")
-        i_buffer_rx = [0xFF0]*8
-        # Lock again (for case, that "now" data comes)
-        event.clear()
-        
-        return i_buffer_rx
-    
-    return i_data_in
+    # Else data OK -> return them
+    return data[1:]
 

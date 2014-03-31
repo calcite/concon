@@ -46,6 +46,9 @@ const_uniprot_VERSION = "release"
 const_USB_VID = 0x03EB
 
 const_USB_PID = 0x204F
+#const_USB_VID = 0x16D0
+#const_USB_PID = 0x0761
+
 
 const_UNI_MAX_NACK_RETRY_COUNT = 10
 
@@ -174,6 +177,8 @@ def Uniprot_init():
     
     if(device == 404):
         raise UniprotException_Device_not_found(" Device not found!\n")
+    if(device == -1):
+        raise Exception(" RX buffer has invalid size!\n")
     
 
 
