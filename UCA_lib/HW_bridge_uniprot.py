@@ -38,9 +38,6 @@ import struct
 from compiler.ast import Print
 from cgi import log
 
-## Load configure file for logging
-logging.config.fileConfig('config/logging_global.conf', None, False)
-
 ##
 # @brief Get logging variable
 logger = logging.getLogger('Bridge HW <---> uniprot')
@@ -96,7 +93,7 @@ class SETTING_STRUCT(object):
                        self.out_min, self.out_max,\
                        self.out_value)
 
-class Bridge():
+class Bridge(object):
     # @brief: "Constants"
     # @{
     MAX_RETRY_CNT = 3
@@ -181,7 +178,9 @@ class Bridge():
     
     ##
     # @brief: Connect to the target device if possible
-    def __init__(self):
+    def __init__(self, VID, PID):
+        self.VID = VID  # USB VendorID
+        self.PID = PID  # USB ProductID
         ##
         # @brief Global variables
         # @{
@@ -192,10 +191,9 @@ class Bridge():
         
         # @}
         
-        
         try:
             logger.debug("[__init__] Trying initialize uniprot")
-            Uniprot_init()
+            Uniprot_init(self.VID, self.PID)
             logger.debug("[__init__] Getting num. of devices")
             self.get_number_of_devices_from_device()
             

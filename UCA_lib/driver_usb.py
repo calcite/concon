@@ -58,6 +58,18 @@ def in_sample_handler(data):
 
 
 
+##
+# @brief Just test if selected device is connected
+# @param VID: Vendor ID
+# @param PID: Product ID 
+def usb_ping_device(VID, PID):
+  try:
+    hid.HidDeviceFilter(vendor_id = VID, product_id = PID).get_devices()[0]
+    # If device exist
+    return 1;
+  except:
+    # Device not exist
+    return 404
 
 ##
 # @brief Open USB device. Should be called as first

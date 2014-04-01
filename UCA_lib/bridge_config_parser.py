@@ -20,8 +20,6 @@ import ConfigParser
 
 import re
 
-## Load configure file for logging
-logging.config.fileConfig('config/logging_global.conf', None, False)
 
 ##
 # @brief Get logging variable
@@ -496,7 +494,7 @@ class GroupParam(SETTING_STRUCT_CHANGE_PARAM):
 #-----------------------------------------------------------------------------#
 
 
-class BridgeConfigParser():
+class BridgeConfigParser(object):
     # @brief: "Constants"
     # @{
     MAX_RETRY_CNT = 1
@@ -506,9 +504,14 @@ class BridgeConfigParser():
     
     ##
     # @brief Initialize procedure
-    def __init__(self):
-        self.s_cfg_settings = []
+    def __init__(self, VID, PID):
+        self.VID = VID  # USB VendorID
+        self.PID = PID  # USB ProductID
         
+        
+        
+        
+        self.s_cfg_settings = []
         
         # Try initialize Bridge
         retry_cnt = -1
@@ -522,7 +525,7 @@ class BridgeConfigParser():
             
             
             try:
-              BridgeConfigParser.bridge = Bridge()
+              BridgeConfigParser.bridge = Bridge(self.VID, self.PID)
             
             except Exception as e:
                 logger.error("[__init__][Bridge]" + str(e))

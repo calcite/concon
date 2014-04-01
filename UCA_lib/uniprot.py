@@ -27,10 +27,6 @@ import logging.config
 from crc16_xmodem import *
 from driver_usb import *
 
-
-## Load configure file for logging
-logging.config.fileConfig('config/logging_global.conf', None, False)
-
 ##
 # @brief Get logging variable
 logger = logging.getLogger('Uniprot <---> USB')
@@ -43,12 +39,9 @@ const_uniprot_VERSION = "release"
 #const_uniprot_VERSION = "debug"
 
 
-const_USB_VID = 0x03EB
+const_USB_VID = 0x0
 
-const_USB_PID = 0x204F
-#const_USB_VID = 0x16D0
-#const_USB_PID = 0x0761
-
+const_USB_PID = 0x0
 
 const_UNI_MAX_NACK_RETRY_COUNT = 10
 
@@ -164,14 +157,15 @@ def print_if_debug_uniprot( string ):
 
 
 
-
-
 ##
 # @brief Connect to the target device if possible
-def Uniprot_init():
+def Uniprot_init(VID, PID):
     global device
     global const_USB_VID
     global const_USB_PID
+    
+    const_USB_VID = VID # USB VendorID
+    const_USB_PID = PID # USB ProductID
     
     device = usb_open_device(const_USB_VID, const_USB_PID)
     
