@@ -179,10 +179,9 @@ def Uniprot_init(VID, PID):
 ##
 # @brief Disconnect from the target device if possible
 def Uniprot_close():
-    global const_USB_VID
-    global const_USB_PID
+    global device
     
-    status = usb_close_device(const_USB_VID, const_USB_PID)
+    status = usb_close_device(device)
     if(status != 0):
         raise UniprotException_Device_not_found(" Device not found!\n")
 

@@ -36,7 +36,7 @@ from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 
 __all__ = []
-__version__ = 0.8
+__version__ = 0.9
 __date__ = '2014-03-31'
 __updated__ = '2014-04-01'
 
@@ -340,7 +340,7 @@ USAGE
   cfgPars.close_device()
   
   
-  print("[LNAC settings] Bye")
+  print("\nBye")
   
   
   

@@ -64,7 +64,9 @@ def in_sample_handler(data):
 # @param PID: Product ID 
 def usb_ping_device(VID, PID):
   try:
-    hid.HidDeviceFilter(vendor_id = VID, product_id = PID).get_devices()[0]
+    tmp_device = hid.HidDeviceFilter(vendor_id = VID, product_id = PID).get_devices()[0]
+    # If we open device, we must close it!
+    tmp_device.close()
     # If device exist
     return 1;
   except:
@@ -101,17 +103,10 @@ def usb_open_device(VID, PID):
 ##
 # @brief Close USB device. Should be called as last
 #
-# @param VID: Vendor ID
-# @param PID: Product ID 
-def usb_close_device(VID, PID):
+# @param device: device object
+def usb_close_device(device):
     # Try close device
     try:
-        device = hid.HidDeviceFilter(vendor_id = VID,
-                                     product_id = PID).get_devices()[0]
-        print_if_debug_usb_driver("Device found")
-        # Clear handler
-        device.set_raw_data_handler(None)
-        
         device.close()
         print_if_debug_usb_driver("Device closed")
         return 0
