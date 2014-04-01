@@ -36,7 +36,7 @@ from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 
 __all__ = []
-__version__ = 0.9
+__version__ = 0.10
 __date__ = '2014-03-31'
 __updated__ = '2014-04-01'
 
@@ -269,6 +269,15 @@ USAGE
     # If 1 -> device connected
     if(status == 1):
       found_devices.append(dev)
+  
+  # Test if there is at least one device
+  if(len(found_devices) == 0):
+    msg = "No supported device found! Please make sure, that device is\n" +\
+          " properly connected. Also check if device is in supported\n"+\
+          " devices list.\n"
+    logger.error("[Number of devices]" + msg)
+    raise Exception(msg)
+  
   
   # Test if there is only one device connected. If not, then user must decide
   # which want program
