@@ -455,6 +455,9 @@ def Uniprot_USB_tx_data( i_tx_data ):
     global const_UNI_CHAR_RESET
     global const_UNI_CHAR_ACK
     
+    global const_USB_VID
+    global const_USB_PID
+    
     
     
     try:
@@ -544,7 +547,7 @@ def Uniprot_USB_tx_data( i_tx_data ):
         
         # Try initialize device again
         try:
-           Uniprot_init()
+           Uniprot_init(const_USB_VID, const_USB_PID)
         except UniprotException_Device_not_found as e:
             # If reinitialization failed
             # EXCEPTION
@@ -740,6 +743,9 @@ def Uniprot_USB_rx_data():
     global const_UNI_RES_CODE_RESET
     global const_UNI_MAX_NACK_RETRY_COUNT
     
+    global const_USB_VID
+    global const_USB_PID
+    
     global i_buffer_rx
     
     try:
@@ -799,7 +805,7 @@ def Uniprot_USB_rx_data():
             # Try send reset and close device
             try:
                 Uniprot_USB_tx_command(const_UNI_CHAR_RESET)
-                Uniprot_close()
+                Uniprot_close(const_USB_VID, const_USB_PID)
             except:
                 # Dummy operation
                 pass
