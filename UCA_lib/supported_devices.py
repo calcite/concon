@@ -3,8 +3,14 @@
 ##
 # In this file is simple list of supported devices for UniversalControlApp
 
-from ConfigParser import *
-
+#from ConfigParser import *
+# For detection python version (2 or 3)
+import sys
+if(sys.version_info[0] == 2):
+  from ConfigParser import *
+elif(sys.version_info[0] == 3):
+  import configparser as ConfigParser
+  from configparser import *
 
 
 

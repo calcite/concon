@@ -35,8 +35,8 @@ from uniprot import *
 # For binary operation
 import struct
 
-from compiler.ast import Print
-from cgi import log
+# For python version detection
+import sys
 
 ##
 # @brief Get logging variable
@@ -364,20 +364,12 @@ class Bridge(object):
 #                                                                             #
 #-----------------------------------------------------------------------------#
     def getFloatNumber(self, number):
-        # Number split into 4 Bytes
-        array = [0x00] * 4
-        array[3] = number>>24 & 0xFF
-        array[2] = (number>>16) & 0xFF
-        array[1] = (number>>8) & 0xFF
-        array[0] = (number & 0xFF)
-        
-        # Data array to binary format and finally convert to string
-        bin = str(bytearray(array))
-        
-        # String to tuple
-        float = struct.unpack('f', bin)
-        # Tuple to float and return
-        return float[0]
+        # Create byte array from unsigned integer
+        bytes = struct.pack('I', number)
+        # Convert bytes to float
+        float = struct.unpack('f', bytes)
+        # Return just first float number (just 4 case)
+        return str(float[0])
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
@@ -389,33 +381,39 @@ class Bridge(object):
     # @param 
     def retype(self, i_value, i_data_type):
         if(i_data_type == Bridge.DATA_TYPES.char_type):
+          # This is python version dependent
+          if(sys.version_info[0] == 2):
             return str(unichr(i_value))
+          elif(sys.version_info[0] == 3):
+            return str(chr(i_value))
+          else:
+            raise("Unsupported python version")
         if(i_data_type == Bridge.DATA_TYPES.float_type):
-            return self.getFloatNumber(i_value)
+          return self.getFloatNumber(i_value)
         if(i_data_type == Bridge.DATA_TYPES.int16_type):
-            return self.getSignedNumber(i_value, 16)
+          return self.getSignedNumber(i_value, 16)
         if(i_data_type == Bridge.DATA_TYPES.int32_type):
-            return self.getSignedNumber(i_value, 32)
+          return self.getSignedNumber(i_value, 32)
         if(i_data_type == Bridge.DATA_TYPES.int8_type):
-            return self.getSignedNumber(i_value, 8)
+          return self.getSignedNumber(i_value, 8)
         if(i_data_type == Bridge.DATA_TYPES.int_type):
-            return self.getSignedNumber(i_value, 16)
+          return self.getSignedNumber(i_value, 16)
         if(i_data_type == Bridge.DATA_TYPES.uint16_type):
-            return i_value
+          return i_value
         if(i_data_type == Bridge.DATA_TYPES.uint32_type):
-            return i_value
+          return i_value
         if(i_data_type == Bridge.DATA_TYPES.uint8_type):
-            return i_value
+          return i_value
         if(i_data_type == Bridge.DATA_TYPES.uint_type):
-            return i_value
+          return i_value
         if(i_data_type == Bridge.DATA_TYPES.void_type):
-            return None
+          return None
         if(i_data_type == Bridge.DATA_TYPES.group_type):
-            return i_value
+          return i_value
         else:
-            message = "[retype] Unknown data type (" + str(i_data_type) +\
-                      ")\n"
-            logger.error(message)
+          message = "[retype] Unknown data type (" + str(i_data_type) +\
+                    ")\n"
+          logger.error(message)
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
@@ -721,9 +719,15 @@ class Bridge(object):
         
         # Load descriptor
         while(i_rx_buffer[i_index] != 0x00):
-            # Add character to descriptor
-            rx_metadata.descriptor =   rx_metadata.descriptor +\
+            # Add character to descriptor - this is python version dependent
+            if(sys.version_info[0] == 2):
+              rx_metadata.descriptor =   rx_metadata.descriptor +\
                                          str(unichr(i_rx_buffer[i_index]))
+            elif(sys.version_info[0] == 3):
+              rx_metadata.descriptor =   rx_metadata.descriptor +\
+                                         str(chr(i_rx_buffer[i_index]))
+            else:
+              raise("Unsupported python version")
             
             # Increase index
             i_index = i_index+1
@@ -953,8 +957,15 @@ class Bridge(object):
         
         # Get name
         while(i_rx_buffer[i_index_rx_buffer] != 0x00):
-            rx_config.name = rx_config.name +\
+            # This is python version depend (unichr vs chr)
+            if(sys.version_info[0] == 2):
+              rx_config.name = rx_config.name +\
                             str(unichr(i_rx_buffer[i_index_rx_buffer]))
+            elif(sys.version_info[0] == 3):
+              rx_config.name = rx_config.name +\
+                            str(chr(i_rx_buffer[i_index_rx_buffer]))
+            else:
+              raise("Unsupported python version")
             i_index_rx_buffer = i_index_rx_buffer +1
         
         # move to next character (add 1)
@@ -964,8 +975,14 @@ class Bridge(object):
         # And get descriptor - do not know length
         while(i_rx_buffer[i_index_rx_buffer] != 0x00):
             # Add character to string
-            rx_config.descriptor = rx_config.descriptor + \
+            if(sys.version_info[0] == 2):
+              rx_config.descriptor = rx_config.descriptor +\
                             str(unichr(i_rx_buffer[i_index_rx_buffer]))
+            elif(sys.version_info[0] == 3):
+              rx_config.descriptor = rx_config.descriptor +\
+                            str(chr(i_rx_buffer[i_index_rx_buffer]))
+            else:
+              raise("Unsupported python version")
             i_index_rx_buffer = i_index_rx_buffer +1
         
         

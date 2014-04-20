@@ -15,8 +15,14 @@ import logging.config
 
 from HW_bridge_uniprot import *
 
-
-import ConfigParser
+# For detection python version (2 or 3)
+import sys
+if(sys.version_info[0] == 2):
+  import ConfigParser
+elif(sys.version_info[0] == 3):
+  import configparser as ConfigParser
+else:
+  raise("Unknown python version")
 
 import re
 
@@ -30,26 +36,68 @@ logger = logging.getLogger('Bridge config parser')
 # http://stackoverflow.com/questions/8533797/adding-comment-with-configparser
 class ConfigParserWithComments(ConfigParser.ConfigParser):
     def add_comment(self, section, comment):
-        self.set(section, '; ' + comment, None)
-
+        # Do not know, but in python3 there value can not be none, but in
+        # python2 can. Not optimal, but there is version switch.
+        if(sys.version_info[0] == 2):
+          # Nice comment
+          self.set(section, '; ' + comment, None)
+        elif(sys.version_info[0] == 3):
+          # Ugly, but working comment
+          self.set(section, ';', ">  " + comment)
+        else:
+          raise("Unknown python version")
+    
     def write(self, fp):
         """Write an .ini-format representation of the configuration state."""
         if self._defaults:
-            fp.write("[%s]\n" % ConfigParser.DEFAULTSECT)
-            for (key, value) in self._defaults.items():
+            s = str("[%s]\n" % ConfigParser.DEFAULTSECT)
+            # This is python version dependent. Again :(
+            if(sys.version_info[0] == 2):
+              fp.write(s)
+              for (key, value) in self._defaults.items():
                 self._write_item(fp, key, value)
-            fp.write("\n")
+              fp.write("\n")
+            elif(sys.version_info[0] == 3):  
+              fp.write(bytes(s, 'UTF-8'))
+              for (key, value) in self._defaults.items():
+                self._write_item(fp, key, value)
+              fp.write(bytes("\n"), 'UTF-8')
+            else:
+              raise("Unknown python version")
+            
+            
+            
         for section in self._sections:
-            fp.write("[%s]\n" % section)
+          if(sys.version_info[0] == 2):
+            s = str("[%s]\n" % section)
+            fp.write(s)
             for (key, value) in self._sections[section].items():
                 self._write_item(fp, key, value)
-            fp.write("\n")
+            s = str("\n")
+            fp.write(s)
+          elif(sys.version_info[0] == 3):
+            s = str("[%s]\n" % section)
+            fp.write(bytes(s, 'UTF-8'))
+            for (key, value) in self._sections[section].items():
+                self._write_item(fp, key, value)
+            s = str("\n")
+            fp.write(bytes(s, 'UTF-8'))
+          else:
+            raise("Unknown python version")
 
     def _write_item(self, fp, key, value):
+      if(sys.version_info[0] == 2):
         if key.startswith(';') and value is None:
             fp.write("%s\n" % (key,))
         else:
             fp.write("%s = %s\n" % (key, str(value).replace('\n', '\n\t')))
+      elif(sys.version_info[0] == 3):
+        if key.startswith(';') and value is None:
+            fp.write(bytes("%s\n" % (key,), 'UTF-8'))
+        else:
+            fp.write(bytes("%s = %s\n" % (key, str(value).replace('\n', '\n\t')), 'UTF-8'))
+      else:
+        raise("Unknown python version")
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#

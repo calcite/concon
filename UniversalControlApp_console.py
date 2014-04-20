@@ -14,8 +14,11 @@ It defines classes_and_methods
 @license:    license
 
 @contact:    martin.stej@gmail.com
-@deffield    updated: 17.04.2014
+@deffield    updated: 20.04.2014
 '''
+
+import sys
+sys.path.append("UCA_lib")
 
 # Allow create and load device depend configuration file
 from UCA_lib.bridge_config_parser import *
@@ -23,8 +26,8 @@ from UCA_lib.bridge_config_parser import *
 # Get list of supported devices from configuration file
 from UCA_lib.supported_devices import *
 
-# Allow "ping" devies
-from UCA_lib.driver_usb import usb_ping_device
+# Allow "ping" devices
+from UCA_lib.usb_driver import usb_ping_device
 
 # Time operations
 from time import sleep
@@ -36,9 +39,9 @@ from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 
 __all__ = []
-__version__ = 0.11
+__version__ = 0.20
 __date__ = '2014-03-31'
-__updated__ = '2014-04-17'
+__updated__ = '2014-04-20'
 
 DEBUG = 0
 
@@ -197,7 +200,7 @@ USAGE
   except KeyboardInterrupt:
         ### handle keyboard interrupt ###
         return 0
-  except Exception, e:
+  except Exception as e:
         if DEBUG:
             raise(e)
         indent = len(program_name) * " "

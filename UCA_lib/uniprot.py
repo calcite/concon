@@ -25,7 +25,7 @@ import logging.config
 
 
 from crc16_xmodem import *
-from driver_usb import *
+from usb_driver import *
 
 ##
 # @brief Get logging variable

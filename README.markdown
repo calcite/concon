@@ -19,6 +19,7 @@
  * UCA_lib/bridge_config_parser.py - Create and load configuration files 
  * UCA_lib/crc16_xmodem.py - CRC algorythm used by uniprot
  * UCA_lib/driver_usb.py - USB HID driver
+ * UCA_lib/usb_driver_lib - Directory with drivers for Linux and Windows
  * UCA_lib/HW_bridge_uniprot.py - Virtual bridge between uniprot and higher
    layer from generic driver
    UCA_lib/uniprot.py - Universal protocol which use driver_usb.py functions
@@ -31,6 +32,7 @@
  `git clone http://10.54.13.215/gitlab/martin.stej/codeckit-controlapp.git`
  
 ## Notes
- * Tested on Python 2.7
- * Application is so far tested on Windows7
- * For more info run application with -h parameter
+ * Tested on Linux with python 2.7, 3.2, 3.3 and 3.4
+ * Tested on Windows XP and Windows 7 with python 2.7 (but it should work on
+   version 3.2, 3.3 and so on)
+ * For more info run application with "-h" parameter
