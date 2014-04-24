@@ -1,4 +1,4 @@
-#!/usr/local/bin/python2.7
+#!/usr/local/bin/python
 # encoding: utf-8
 '''
  Universal Control Application for command line
@@ -14,7 +14,7 @@ It defines classes_and_methods
 @license:    license
 
 @contact:    martin.stej@gmail.com
-@deffield    updated: 20.04.2014
+@deffield    updated: 23.04.2014
 '''
 
 import sys
@@ -39,9 +39,9 @@ from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 
 __all__ = []
-__version__ = 0.20
+__version__ = 0.21
 __date__ = '2014-03-31'
-__updated__ = '2014-04-20'
+__updated__ = '2014-04-23'
 
 DEBUG = 0
 

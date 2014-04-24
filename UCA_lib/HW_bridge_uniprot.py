@@ -369,7 +369,7 @@ class Bridge(object):
         # Convert bytes to float
         float = struct.unpack('f', bytes)
         # Return just first float number (just 4 case)
-        return str(float[0])
+        return float[0]
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
