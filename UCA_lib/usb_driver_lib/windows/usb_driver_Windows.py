@@ -97,7 +97,7 @@ def usb_lib_close_device(device):
 
 
 
-def usb_lib_tx_data(device, data_8bit):
+def usb_lib_tx_data(device, data_8bit, timeout):
   """
   Send data (64 bits per 8 bits) over USB interface
   

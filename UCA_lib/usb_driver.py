@@ -24,10 +24,11 @@ from usb_driver_lib import *
 ##
 # @brief Define maximum time in which must data came back from device
 #
-# Note that usually there is not problem on device side, but on PC side\n
-# (depend on CPU load -> application process time -> sometimes can miss\n
-# packets). So there is some timeout so application will not hang on.
-# However this problem is usually occurs on Windows (pywinusb implementation) 
+# Note that usually there is not problem on device side, however timeout must
+# calculate with data processing on device side and PC side. Higher value
+# is better (device can process more data meanwhile PC wait for response),
+# but in case that some data are lost, data throughput will be decreased. So
+# set this value wisely
 const_USB_TIMEOUT_MS = 50
 
 
@@ -95,7 +96,8 @@ def usb_tx_data(device, data_8bit):
   :param data_8bit: Data to TX (8 bytes -> 64 bits)
   :type data_8bit: List of 8 bit data values
   """
-  return usb_lib_tx_data(device, data_8bit)
+  global const_USB_TIMEOUT_MS
+  return usb_lib_tx_data(device, data_8bit, const_USB_TIMEOUT_MS)
 
 
 def usb_rx_data(device):

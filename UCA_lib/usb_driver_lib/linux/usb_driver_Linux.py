@@ -64,7 +64,6 @@ def usb_lib_open_device(VID, PID):
   dev_hid = HID_DEVICE_STRUCT()
   
   
-  
   # Test if device exist
   dev = usb.core.find(idVendor = VID, idProduct=PID)
   if(dev == None):
@@ -72,6 +71,7 @@ def usb_lib_open_device(VID, PID):
   else:
     # Device found -> test if device have HID profile and if yes, then
     # detach kernel driver
+    
     
     # Go through all configurations
     for cfg in dev:
@@ -107,6 +107,14 @@ def usb_lib_open_device(VID, PID):
     
     # If all OK -> return device interface with generic HID 
     if( (found_in_ep == 1) and (found_out_ep == 1) ):
+      # Test if driver is attached to kernel. If not, try to attach it back
+      if(not dev.is_kernel_driver_active(dev_hid.interface)):
+        raise Exception(
+              "It looks like some process uses HID interface. Or maybe some \n"
+              "program that used HID interface crash or forget close device.\n"
+              "So please make sure that device is not using another\n"
+              "program and then reconnect device. Sorry for troubles, but\n"
+              "this is the only solution for now :(")
       # Detach kernel driver -> device under control (R/W)
       dev.detach_kernel_driver(dev_hid.interface)
       return dev_hid
@@ -127,7 +135,7 @@ def usb_lib_close_device(device):
   return 0
 
 
-def usb_lib_tx_data(device, data_8bit):
+def usb_lib_tx_data(device, data_8bit, timeout):
   """
   Send data (64 bits per 8 bits) over USB interface
   
@@ -136,8 +144,11 @@ def usb_lib_tx_data(device, data_8bit):
   :param data_8bit: Data to TX (8 bytes -> 64 bits)
   :type data_8bit: List of 8 bit data values
   """
-  
-  device.ep_out.write( data_8bit )
+  try:
+    device.ep_out.write( data_8bit, timeout )
+  except:
+    print("\n--------------------\nTX Timeout!\n---------------------\n")
+    return -1
   
   return 0
 
@@ -155,7 +166,7 @@ def usb_lib_rx_data(device, timeout):
     in_data = device.ep_in.read(8, timeout)
   except:
     # Timeout -> load dummy data
-    print("\n--------------------\nTimeout!\n---------------------\n")
+    print("\n--------------------\nRX Timeout!\n---------------------\n")
     in_data = [0xFF0]*8
     return in_data
   

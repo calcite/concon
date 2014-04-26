@@ -811,7 +811,7 @@ def Uniprot_USB_rx_data():
                 pass
             # Try initialize device again
             try:
-                Uniprot_init()
+                Uniprot_init(const_USB_VID, const_USB_PID)
             except UniprotException_Device_not_found as e:
                 # If reinitialization failed
                 # EXCEPTION

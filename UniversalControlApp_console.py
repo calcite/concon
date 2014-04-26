@@ -14,7 +14,7 @@ It defines classes_and_methods
 @license:    license
 
 @contact:    martin.stej@gmail.com
-@deffield    updated: 23.04.2014
+@deffield    updated: 26.04.2014
 '''
 
 import sys
@@ -39,9 +39,9 @@ from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 
 __all__ = []
-__version__ = 0.21
+__version__ = 0.3
 __date__ = '2014-03-31'
-__updated__ = '2014-04-23'
+__updated__ = '2014-04-26'
 
 DEBUG = 0
 
@@ -301,7 +301,12 @@ USAGE
         for i in range(len(found_devices)):
           print(" Device number [{0}] Name: {1}".format(i, found_devices[i].name))
         print("<----------------------------------------------->")
-        user_choice = raw_input("Selected device number: ")
+        if(sys.version_info[0] == 2):
+          user_choice = raw_input("Selected device number: ")
+        elif(sys.version_info[0] == 3):
+          user_choice = input("Select device number: ")
+        else:
+          raise Exception("Unknown python version")
         # Check input
         try:
           user_choice = int(user_choice)
@@ -335,20 +340,30 @@ USAGE
   
   if(rw_mode == "w"):
     # Create config file
-    cfgPars.write_setting_to_cfg_file(dev_cfg_file)
+    try:
+      cfgPars.write_setting_to_cfg_file(dev_cfg_file)
+    except Exception as e:
+      # If something fails -> try at least close device properly
+      cfgPars.close_device()
+      raise Exception(e)
   else:
     # Or read from config file
-    cfgPars.read_setting_from_file(dev_cfg_file,
-                                   ignore_errors=False,
-                                   try_fix_errors=True)
-    # And send changes to device
-    cfgPars.write_setting_to_device()
+    try:
+      cfgPars.read_setting_from_file(dev_cfg_file,
+                                     ignore_errors=False,
+                                     try_fix_errors=True)
+      # And send changes to device
+      cfgPars.write_setting_to_device()
+    except Exception as e:
+      # If something fails -> try at least close device properly
+      cfgPars.close_device()
+      raise Exception(e)
   
   
   
   
   
-  
+  # Close device properly
   cfgPars.close_device()
   
   

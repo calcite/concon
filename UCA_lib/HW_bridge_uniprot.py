@@ -142,11 +142,11 @@ class Bridge(object):
         
     DATA_TYPE_STRS = {DATA_TYPES.void_type:   "void",
                       DATA_TYPES.char_type:   "char",
-                      DATA_TYPES.int_type:    "int (16b)",
+                      DATA_TYPES.int_type:    "int (32b)",
                       DATA_TYPES.int8_type:   "int8",
                       DATA_TYPES.int16_type:  "int16",
                       DATA_TYPES.int32_type:  "int32",
-                      DATA_TYPES.uint_type:   "uint (16b)",
+                      DATA_TYPES.uint_type:   "uint (32b)",
                       DATA_TYPES.uint8_type:  "uint8",
                       DATA_TYPES.uint16_type: "uint16",
                       DATA_TYPES.uint32_type: "uint32",
@@ -397,7 +397,7 @@ class Bridge(object):
         if(i_data_type == Bridge.DATA_TYPES.int8_type):
           return self.getSignedNumber(i_value, 8)
         if(i_data_type == Bridge.DATA_TYPES.int_type):
-          return self.getSignedNumber(i_value, 16)
+          return self.getSignedNumber(i_value, 32)
         if(i_data_type == Bridge.DATA_TYPES.uint16_type):
           return i_value
         if(i_data_type == Bridge.DATA_TYPES.uint32_type):
@@ -1077,27 +1077,39 @@ class Bridge(object):
             logger.warn("[set_setting_to_device] Value is negative, but it "
                         "should be only positive (because data type is"
                         " unsinged). Value will be transmitted, but in device"
-                        "device will be used as unsigned!\n")
+                        " will be used as unsigned!\n")
         # INT and UINT TYPES
         else:
             msg_wide_variable = "[set_setting_to_device] Value is wider" +\
                                 " than maximum. Application send only low "
-          
-            if(data_type == self.DATA_TYPES.uint32_type):
+                                
+            # Note that int and uint should be 32 bit long.
+            if((data_type == self.DATA_TYPES.uint32_type) or
+               (data_type == self.DATA_TYPES.int32_type) or
+               (data_type == self.DATA_TYPES.uint_type) or
+               (data_type == self.DATA_TYPES.int_type)):
               if(i_value > 0xFFFFFFFF):
                 i_value = i_value & 0xFFFFFFFF
                 logger.warn(msg_wide_variable + "4 Bytes")
             # Check number size (16b)
-            elif((data_type == self.DATA_TYPES.uint_type) or
-               (data_type == self.DATA_TYPES.uint16_type)):
+            elif((data_type == self.DATA_TYPES.uint16_type) or
+                 (data_type == self.DATA_TYPES.int16_type)):
               if(i_value > 0xFFFF):
                 i_value = i_value & 0xFFFF
                 logger.warn(msg_wide_variable + "2 Bytes")
             # Check number size (8b)
-            else:
+            elif((data_type == self.DATA_TYPES.uint8_type) or
+                 (data_type == self.DATA_TYPES.int8_type)):
               if(i_value > 0xFF):
                 i_value = i_value & 0xFF
                 logger.warn(msg_wide_variable + "1 Byte")
+            else:
+              # This should not happen, because if does, that means, that
+              # we forget some int/uint options
+              msg = "[set_setting_to_device] Programmer forget test some " +\
+                    "int or uint data type. You must correct problem in " +\
+                    "code :/ This never should happen."
+              logger.critical(msg)
         
         
         logger.debug("[set_setting_to_device] Value to send: {0}".format(
@@ -1113,7 +1125,7 @@ class Bridge(object):
         i_tx_buffer[2] = (i_CMD_ID >> 8)
         i_tx_buffer[3] = (i_CMD_ID)      & 0xFF
         # i_value - 4B - split
-        i_tx_buffer[4] = (i_value >> 24)
+        i_tx_buffer[4] = (i_value >> 24) & 0xFF
         i_tx_buffer[5] = (i_value >> 16) & 0xFF
         i_tx_buffer[6] = (i_value >>  8) & 0xFF
         i_tx_buffer[7] =  i_value        & 0xFF
@@ -1160,8 +1172,15 @@ class Bridge(object):
             
         # Check return code - should be 0, however it cant't
         if(i_rx_buffer[1] != 0):
-            message = " Device returned code: "\
-                     + self.res_code_to_str(i_rx_buffer[1]) + "\n"
+            dev_code = self.res_code_to_str(i_rx_buffer[1])
+            message =(" Device returned code: {0}\n"
+                      "  Driver: {1}  (Device ID: {2})\n"
+                      "  CMD: {3}  (CMD ID: {4})\n".format(
+                      dev_code,
+                      self.s_metadata[i_Device_ID].descriptor,
+                      i_Device_ID,
+                      self.s_settings_in_RAM[i_Device_ID][i_CMD_ID].name,
+                      i_CMD_ID))
             logger.warning("[set_setting_to_device]" + message)
             raise BridgeException_Error(message)
         

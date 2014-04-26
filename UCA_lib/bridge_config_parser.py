@@ -22,7 +22,7 @@ if(sys.version_info[0] == 2):
 elif(sys.version_info[0] == 3):
   import configparser as ConfigParser
 else:
-  raise("Unknown python version")
+  raise Exception("Unknown python version")
 
 import re
 
@@ -43,9 +43,9 @@ class ConfigParserWithComments(ConfigParser.ConfigParser):
           self.set(section, '; ' + comment, None)
         elif(sys.version_info[0] == 3):
           # Ugly, but working comment
-          self.set(section, ';', ">  " + comment)
+          self.set(section, "; " + comment, "")
         else:
-          raise("Unknown python version")
+          raise Exeption("Unknown python version")
     
     def write(self, fp):
         """Write an .ini-format representation of the configuration state."""
@@ -63,7 +63,7 @@ class ConfigParserWithComments(ConfigParser.ConfigParser):
                 self._write_item(fp, key, value)
               fp.write(bytes("\n"), 'UTF-8')
             else:
-              raise("Unknown python version")
+              raise Exception("Unknown python version")
             
             
             
@@ -83,7 +83,7 @@ class ConfigParserWithComments(ConfigParser.ConfigParser):
             s = str("\n")
             fp.write(bytes(s, 'UTF-8'))
           else:
-            raise("Unknown python version")
+            raise Exception("Unknown python version")
 
     def _write_item(self, fp, key, value):
       if(sys.version_info[0] == 2):
@@ -92,12 +92,12 @@ class ConfigParserWithComments(ConfigParser.ConfigParser):
         else:
             fp.write("%s = %s\n" % (key, str(value).replace('\n', '\n\t')))
       elif(sys.version_info[0] == 3):
-        if key.startswith(';') and value is None:
+        if key.startswith(';'): # Value is not None and can't be
             fp.write(bytes("%s\n" % (key,), 'UTF-8'))
         else:
             fp.write(bytes("%s = %s\n" % (key, str(value).replace('\n', '\n\t')), 'UTF-8'))
       else:
-        raise("Unknown python version")
+        raise Exception("Unknown python version")
 #-----------------------------------------------------------------------------#
 #                                                                             #
 #-----------------------------------------------------------------------------#
