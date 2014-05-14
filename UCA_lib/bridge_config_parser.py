@@ -26,7 +26,6 @@ else:
 
 import re
 
-
 ##
 # @brief Get logging variable
 logger = logging.getLogger('Bridge config parser')
@@ -102,6 +101,9 @@ class ConfigParserWithComments(ConfigParser.ConfigParser):
 #                                                                             #
 #-----------------------------------------------------------------------------#
 class SETTING_STRUCT_CHANGE_PARAM(SETTING_STRUCT):
+        # Define how many digits will be displayed/saved to file
+        FLOAT_PRECISION = 3
+        
         def __init__(self, setting_struct=None):
             SETTING_STRUCT.__init__(self)
             # If parameter setting_struct exist (is given)
@@ -185,6 +187,14 @@ class SETTING_STRUCT_CHANGE_PARAM(SETTING_STRUCT):
                 # If equal - just add comment with data type, min, max and
                 # actual value
                 
+                # Test if data type is float. Then round it
+                if(self.in_type ==
+                   BridgeConfigParser.bridge.DATA_TYPES.float_type):
+                  self.in_min = format(round(self.in_min,self.FLOAT_PRECISION))
+                  self.in_max = format(round(self.in_max,self.FLOAT_PRECISION))
+                  self.out_value =\
+                             format(round(self.out_value,self.FLOAT_PRECISION))
+                
                 comment = "TYPE: {0} < {1} : {2} > | current value: {3}".format(
                             BridgeConfigParser.bridge.data_type_to_str(
                                                               self.in_type),
@@ -198,6 +208,17 @@ class SETTING_STRUCT_CHANGE_PARAM(SETTING_STRUCT):
                 
             # Else just write in and out type, out value
             else:
+                # Test if data type is float. Then round it
+                if(self.in_type ==
+                   BridgeConfigParser.bridge.DATA_TYPES.float_type):
+                  self.in_min =format(round(self.in_min,self.FLOAT_PRECISION))
+                  self.in_max =format(round(self.in_max,self.FLOAT_PRECISION))
+                  self.out_min=format(round(self.out_min,self.FLOAT_PRECISION))
+                  self.out_max=format(round(self.out_max,self.FLOAT_PRECISION))
+                  self.out_value =\
+                             format(round(self.out_value,self.FLOAT_PRECISION))
+                
+                
                 comment = "IN TYPE: {0} < {1} : {2} >".format(
                             BridgeConfigParser.bridge.data_type_to_str(
                                                               self.in_type),
@@ -545,7 +566,7 @@ class GroupParam(SETTING_STRUCT_CHANGE_PARAM):
 class BridgeConfigParser(object):
     # @brief: "Constants"
     # @{
-    MAX_RETRY_CNT = 1
+    MAX_RETRY_CNT = 3
     # @}
     bridge = None
     
