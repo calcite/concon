@@ -23,6 +23,7 @@
 #
 # @author: Martin Stejskal
 #
+# Created: 31.03.2014
 
 ##
 # @brief For logging events

@@ -14,7 +14,7 @@ It defines classes_and_methods
 @license:    license
 
 @contact:    martin.stej@gmail.com
-@deffield    updated: 14.05.2014
+@deffield    updated: 20.06.2014
 '''
 
 import sys
@@ -39,7 +39,7 @@ from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 
 __all__ = []
-__version__ = 0.4
+__version__ = 0.5
 __date__ = '2014-03-31'
 __updated__ = '2014-05-14'
 

@@ -5,6 +5,9 @@
 # @file
 # @brief Python script for configuration parser
 #
+# Created:  31.03.2014
+# Modified: 20.06.2014
+#
 # @author Martin Stejskal
 
 ##
@@ -35,7 +38,7 @@ logger = logging.getLogger('Bridge config parser')
 # http://stackoverflow.com/questions/8533797/adding-comment-with-configparser
 class ConfigParserWithComments(ConfigParser.ConfigParser):
     def add_comment(self, section, comment):
-        # Do not know, but in python3 there value can not be none, but in
+        # Do not know why, but in python3 there value can not be none, but in
         # python2 can. Not optimal, but there is version switch.
         if(sys.version_info[0] == 2):
           # Nice comment
@@ -123,10 +126,10 @@ class SETTING_STRUCT_CHANGE_PARAM(SETTING_STRUCT):
             return super(SETTING_STRUCT_CHANGE_PARAM, self).__str__() +\
             " Changed: {0}\n CMD ID: {1}\n".format(self.changed,self.CMD_ID)
             
-        def export_to_config(self, config):
+        def export_to_config(self, config, DID):
             
             # Create section
-            section = self.name
+            section = str(DID) + ": " + self.name
             config.add_section(section)
             
             # If there is some descriptor -> add it!
@@ -236,6 +239,7 @@ class SETTING_STRUCT_CHANGE_PARAM(SETTING_STRUCT):
                 config.set(section, "in_value", "not changed")
         
         def import_from_config(self, config,
+                               DID,
                                ignore_errors=False,
                                try_fix_errors=False):
             # Check for error input types
@@ -246,7 +250,7 @@ class SETTING_STRUCT_CHANGE_PARAM(SETTING_STRUCT):
             
             
             # Find section
-            section = self.name
+            section = str(DID) + ": " + self.name
             
             # According to actual input and output data types choose correct
             # variable name
@@ -441,10 +445,11 @@ class GroupParam(SETTING_STRUCT_CHANGE_PARAM):
         def add_choice_param(self, param):
             self._choice_params.append(param)
             
-        def export_to_config(self, config):
+        def export_to_config(self, config, DID):
              # Create section
-            section = self.name
+            section = str(DID) + ": " + self.name
             config.add_section(section)
+            config.add_comment(section, self.descriptor)
             config.add_comment(section,
               "TYPE: {0} < {1} : {2} > | current value: {3} |"\
               " Available choices:".format(
@@ -486,10 +491,11 @@ class GroupParam(SETTING_STRUCT_CHANGE_PARAM):
             config.set(section, "selected_value", str(self.out_value))
         
         def import_from_config(self, config,
+                               DID,
                                ignore_errors=False,
                                try_fix_errors=False):
             # Read from section
-            section = self.name
+            section = str(DID) + ": " + self.name
             
             value = config.get(section, "selected_value")
             
@@ -688,6 +694,8 @@ class BridgeConfigParser(object):
         
         for DID in range(num_of_dev +1):
             section = BridgeConfigParser.bridge.device_metadata[DID].descriptor
+            # Because on one device can be multiple drivers there is prefix
+            section = str(DID) + ": " + section
             config.add_section(section)
             config.add_comment(section,"Device ID (DID): " + str(DID))
             config.add_comment(section,"Serial number: {0}".format(
@@ -695,7 +703,7 @@ class BridgeConfigParser(object):
             
             # Go thru command by command in device (DID)
             for setting in self.s_cfg_settings[DID]:
-                setting.export_to_config(config)
+                setting.export_to_config(config, DID)
         
         # Write configuration data to file
         with open(filename, 'wb') as configfile:
@@ -738,6 +746,7 @@ class BridgeConfigParser(object):
         for DID in range(num_of_dev +1):
             for setting in self.s_cfg_settings[DID]:
                 setting.import_from_config(config,
+                                           DID,
                                            ignore_errors,
                                            try_fix_errors)
                 if(setting.changed == True):
