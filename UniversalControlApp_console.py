@@ -14,7 +14,7 @@ It defines classes_and_methods
 @license:    license
 
 @contact:    martin.stej@gmail.com
-@deffield    updated: 20.06.2014
+@deffield    updated: 18.08.2014
 '''
 
 import sys
@@ -39,9 +39,9 @@ from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 
 __all__ = []
-__version__ = 0.5
+__version__ = 0.6
 __date__ = '2014-03-31'
-__updated__ = '2014-05-14'
+__updated__ = '2014-08-18'
 
 DEBUG = 0
 
@@ -102,7 +102,7 @@ USAGE
   log_cfg_file = "config/logging_global.cfg"
   dev_cfg_file = "device.cfg"
   supp_dev_list_file = "config/device_list.cfg"
-  rw_mode = "w"
+  rw_mode = "r"
   verbose_lvl = 0
   use_first_dev = 0
   
@@ -119,7 +119,7 @@ USAGE
                         "--read",
                         dest="read_cfg",
                         action="store_true",
-                        help="read device configuration from file [default"
+                        help="read device configuration to file [default"
                              " parameter: %(default)s]"
                              "[default configuration file: device.cfg]",
                         default=rw_mode,)
@@ -127,7 +127,7 @@ USAGE
                         "--write",
                         dest="write_cfg",
                         action="store_true",
-                        help="write device configuration to file [default"
+                        help="write configuration to device [default"
                         " parameter: %(default)s]"
                         "[default configuration file: device.cfg]",
                         default=rw_mode)
@@ -240,7 +240,7 @@ USAGE
                                               verbose_lvl))
   else:
     # Write just info about configuration file
-    if(rw_mode == "w"):
+    if(rw_mode == "r"):
       logger.info("Configuration file for device will be created\n")
     else:
       logger.info("Configuration data will be written to device\n")
@@ -338,7 +338,7 @@ USAGE
   # Try to initialize bridge
   cfgPars = BridgeConfigParser(VID, PID)
   
-  if(rw_mode == "w"):
+  if(rw_mode == "r"):
     # Create config file
     try:
       cfgPars.write_setting_to_cfg_file(dev_cfg_file)
