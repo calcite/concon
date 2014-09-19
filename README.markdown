@@ -27,9 +27,6 @@
 
 ## Usage
  `python UniversalControlApp_console.py`
-
-## Get source code!
- `git clone http://10.54.13.215/gitlab/alcz/codeckit-controlapp.git`
  
 ## Notes
  * Tested on Linux with python 2.7, 3.2, 3.3 and 3.4
