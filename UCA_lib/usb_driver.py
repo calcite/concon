@@ -111,3 +111,12 @@ def usb_rx_data(device):
   
   return usb_lib_rx_data(device, const_USB_TIMEOUT_MS)
 
+def usb_list_devices(vid=None):
+    """
+    List all connected devices, optionally filter only devices with given Vendor ID.
+    
+    :param vid:    (Optional) Vendor ID.
+    
+    :return: List of connected devices (DeviceStructs).
+    """
+    return usb_list_connected_devices(vid)

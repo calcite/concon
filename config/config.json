@@ -1,0 +1,10 @@
+{
+
+# List of supported vendor ID's
+"Supported_VID": [5840, 1003],
+
+#List of ignored PID's
+"Ignored_PID": []
+
+
+}

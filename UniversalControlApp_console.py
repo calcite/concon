@@ -99,12 +99,12 @@ USAGE
   
   
   # Default values
-  log_cfg_file = "config/logging_global.cfg"
-  dev_cfg_file = "device.cfg"
-  supp_dev_list_file = "config/device_list.cfg"
+  LOGGING_CONFIG_FILE = "config/logging_global.cfg"
+  DEVICE_CONFIG_FILE = "device.cfg"
   rw_mode = "r"
   verbose_lvl = 0
   use_first_dev = 0
+  CONFIG = "config/config.json"
   
   
   
@@ -136,19 +136,19 @@ USAGE
                         dest="device_cfg_path",
                         help="path to device configuration file "
                         "[default: %(default)s]",
-                        default=dev_cfg_file)
-    parser.add_argument("-L",
-                        "--list",
-                        dest="list_path",
-                        help="path to list with supported devices "
+                        default=DEVICE_CONFIG_FILE)
+    parser.add_argument("-C",
+                        "--config",
+                        dest="config_path",
+                        help="path to configuration file "
                         "[default: %(default)s]",
-                        default=supp_dev_list_file)
+                        default=CONFIG)
     parser.add_argument("-l",
                         "--log",
                         dest="log_cfg_path",
                         help="Path to log configuration file "
                         "[default: %(default)s]",
-                        default=log_cfg_file)
+                        default=LOGGING_CONFIG_FILE)
     parser.add_argument("-f",
                         "--first",
                         dest="use_first_dev",
@@ -176,13 +176,13 @@ USAGE
     
     # If not empty, then overwrite origin value
     if( args.log_cfg_path != None ):
-      log_cfg_file = args.log_cfg_path
+      LOGGING_CONFIG_FILE = args.log_cfg_path
       
     if( args.device_cfg_path != None ):
-      dev_cfg_file = args.device_cfg_path
+      DEVICE_CONFIG_FILE = args.device_cfg_path
       
-    if( args.list_path != None):
-      supp_dev_list_file = args.list_path
+    if( args.config_path != None):
+      config_file = args.config_path
     # Save verbose level
     if( args.verbose > 0):
       verbose_lvl = args.verbose
@@ -216,7 +216,7 @@ USAGE
   # All arguments are now processed
   
   ## Load configure file for logging
-  logging.config.fileConfig(log_cfg_file, None, False)
+  logging.config.fileConfig(LOGGING_CONFIG_FILE, None, False)
   logger.info("v{0} Alive!\n".format(__version__))
   
   # Check use_first_dev value
@@ -234,9 +234,9 @@ USAGE
                 "File with supported devices: {2}\n"
                 "Log configuration file: {3}\n"
                 "Verbose level: {4}\n".format(rw_mode,
-                                              dev_cfg_file,
-                                              supp_dev_list_file,
-                                              log_cfg_file,
+                                              DEVICE_CONFIG_FILE,
+                                              config_file,
+                                              LOGGING_CONFIG_FILE,
                                               verbose_lvl))
   else:
     # Write just info about configuration file
@@ -248,8 +248,10 @@ USAGE
   
   
   # Try get list of known devices
+
   try:
-    dev_list = SupportedDevices.create_from_config_file(supp_dev_list_file)
+    devices = SupportedDevices(config_file)
+    dev_list = devices.get_connected_devices()
   except:
     msg = " Invalid file path or configuration file!\n"
     logger.error("[SupportedDevices]" + msg)
@@ -261,9 +263,6 @@ USAGE
     for dev  in dev_list:
       msg = msg + str(dev)
     logger.info("Supported devices:\n{0}\n".format(msg))
-  
-  
-  
   
   # Now try to "ping" every supported device. If device found, add it to list
   found_devices = []
@@ -341,7 +340,7 @@ USAGE
   if(rw_mode == "r"):
     # Create config file
     try:
-      cfgPars.write_setting_to_cfg_file(dev_cfg_file)
+      cfgPars.write_setting_to_cfg_file(DEVICE_CONFIG_FILE)
     except Exception as e:
       # If something fails -> try at least close device properly
       cfgPars.close_device()
@@ -349,7 +348,7 @@ USAGE
   else:
     # Or read from config file
     try:
-      cfgPars.read_setting_from_file(dev_cfg_file,
+      cfgPars.read_setting_from_file(DEVICE_CONFIG_FILE,
                                      ignore_errors=False,
                                      try_fix_errors=True)
       # And send changes to device

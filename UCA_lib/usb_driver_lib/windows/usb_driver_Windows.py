@@ -12,7 +12,7 @@ import pywinusb.hid as hid
 # Queue - FIFO/LIFO memory for multi-thread applications
 import Queue
 
-
+from usb_driver_lib.device import DeviceStruct
 
 # Queue object
 rx_buff = None
@@ -146,3 +146,19 @@ def usb_lib_rx_data(device, timeout):
   
   # Else data OK -> return them
   return data[1:]
+
+def usb_list_connected_devices(vid=None):
+    """
+    List all connected devices, optionally filter only devices with given Vendor ID.
+    
+    :param vid:    (Optional) Vendor ID.
+    
+    :return: List of connected devices (DeviceStructs).
+    """
+    
+    kwargs = {'vendor_id': vid,} if vid else {}
+    devices = []
+    for device in hid.HidDeviceFilter(**kwargs).get_devices():
+        devices.append(DeviceStruct(device.product_name, device.vendor_id, device.product_id))
+                       
+    return devices
