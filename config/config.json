@@ -1,10 +1,9 @@
 {
 
 # List of supported vendor ID's
-"Supported_VID": [5840, 1003],
+"Supported_VID": [5840, 1003, 1075],
 
 #List of ignored PID's
 "Ignored_PID": []
-
 
 }
