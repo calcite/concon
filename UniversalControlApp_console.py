@@ -76,7 +76,7 @@ def main(argv=None):
     argv = sys.argv
   else:
     sys.argv.extend(argv)
-    
+
   program_name = os.path.basename(sys.argv[0])
   program_version = "v%s" % __version__
   program_build_date = str(__updated__)
@@ -95,9 +95,9 @@ def main(argv=None):
 
 USAGE
 ''' % (program_shortdesc, str(__date__))
-  
-  
-  
+
+
+
   # Default values
   LOGGING_CONFIG_FILE = "config/logging_global.cfg"
   DEVICE_CONFIG_FILE = "device.cfg"
@@ -105,9 +105,9 @@ USAGE
   verbose_lvl = 0
   use_first_dev = 0
   CONFIG = "config/config.json"
-  
-  
-  
+
+
+
   # Try to process arguments
   try:
     # Setup argument parser
@@ -170,33 +170,33 @@ USAGE
                         action="count",
                         help="enable verbose mode [default: %(default)s]",
                         default=verbose_lvl)
-        
+
     # Process arguments
     args = parser.parse_args()
-    
+
     # If not empty, then overwrite origin value
     if( args.log_cfg_path != None ):
       LOGGING_CONFIG_FILE = args.log_cfg_path
-      
+
     if( args.device_cfg_path != None ):
       DEVICE_CONFIG_FILE = args.device_cfg_path
-      
+
     if( args.config_path != None):
       config_file = args.config_path
     # Save verbose level
     if( args.verbose > 0):
       verbose_lvl = args.verbose
-    
+
     if( args.read_cfg == True):
       rw_mode = "r"
     if( args.write_cfg == True):
       rw_mode = "w"
-    
-    
-    
+
+
+
     if( args.use_first_dev != None):
       use_first_dev = args.use_first_dev
-    
+
   except KeyboardInterrupt:
         ### handle keyboard interrupt ###
         return 0
@@ -207,25 +207,25 @@ USAGE
         sys.stderr.write(program_name + ": " + repr(e) + "\n")
         sys.stderr.write(indent + "  for help use --help")
         return 2
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
   # All arguments are now processed
-  
+
   ## Load configure file for logging
   logging.config.fileConfig(LOGGING_CONFIG_FILE, None, False)
   logger.info("v{0} Alive!\n".format(__version__))
-  
+
   # Check use_first_dev value
   if((use_first_dev != 0) and (use_first_dev != 1)):
     logger.warning("Parameter use first device have invalid value.\nParameter"
                    "will be set to 0\n(use first device feature will be"
                    " disabled\n")
     use_first_dev = 0
-  
+
   # Write info about actual configuration only if verbose is enabled
   if(verbose_lvl > 0):
     # R/W mode
@@ -244,26 +244,25 @@ USAGE
       logger.info("Configuration file for device will be created\n")
     else:
       logger.info("Configuration data will be written to device\n")
-  
-  
-  
-  # Try get list of known devices
 
+
+
+  # Try get list of known devices
   try:
     devices = SupportedDevices(config_file)
     dev_list = devices.get_connected_devices()
-  except:
-    msg = " Invalid file path or configuration file!\n"
+  except Exception as e:
+    msg = " Invalid file path or configuration file: {0}!\n".format(str(e))
     logger.error("[SupportedDevices]" + msg)
     raise Exception(msg)
-  
+
   # If verbose show supported devices
   if(verbose_lvl >1):
     msg = ""
     for dev  in dev_list:
       msg = msg + str(dev)
     logger.info("Supported devices:\n{0}\n".format(msg))
-  
+
   # Now try to "ping" every supported device. If device found, add it to list
   found_devices = []
   for dev in dev_list:
@@ -271,7 +270,7 @@ USAGE
     # If 1 -> device connected
     if(status == 1):
       found_devices.append(dev)
-  
+
   # Test if there is at least one device
   if(len(found_devices) == 0):
     msg = "No supported device found! Please make sure, that device is\n" +\
@@ -279,13 +278,13 @@ USAGE
           " devices list.\n"
     logger.error("[Number of devices]" + msg)
     raise Exception(msg)
-  
-  
+
+
   # Test if there is only one device connected. If not, then user must decide
   # which want program
   if(len(found_devices) != 1):
     logger.info("Found {0} devices\n".format(len(found_devices)))
-    
+
     # Test if we just want configure first device (useful for quick debug)
     if(use_first_dev == 1):
       logger.info("Parameter use first device set. Following device will be"
@@ -295,7 +294,7 @@ USAGE
     else:
       # User must select
       print("Please select one device:")
-      
+
       while(1):
         for i in range(len(found_devices)):
           print(" Device number [{0}] Name: {1}".format(i, found_devices[i].name))
@@ -332,11 +331,11 @@ USAGE
     logger.info("Found device:\n   > {0}\n".format(found_devices[0].name))
     VID = found_devices[0].vid
     PID = found_devices[0].pid
-  
-  
+
+
   # Try to initialize bridge
   cfgPars = BridgeConfigParser(VID, PID)
-  
+
   if(rw_mode == "r"):
     # Create config file
     try:
@@ -357,39 +356,39 @@ USAGE
       # If something fails -> try at least close device properly
       cfgPars.close_device()
       raise Exception(e)
-  
-  
-  
-  
-  
+
+
+
+
+
   # Close device properly
   cfgPars.close_device()
-  
-  
+
+
   print("\nBye")
-  
-  
-  
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
   if DEBUG:
     sys.argv.append("-h")
     sys.argv.append("-v")
-  
-  
+
+
   sys.exit(main())
-  
-  
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
+
+
 
 
