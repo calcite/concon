@@ -16,6 +16,7 @@ sys.path.append("usb_driver_lib")
 
 from usb_driver_lib import *
 
+import commentjson
 
 ##
 # @brief "Constants"
@@ -47,8 +48,12 @@ detected_os = None
 initialized = 0
 
 
-
-
+def usb_load_config(config_file):
+    global const_USB_TIMEOUT_MS
+    
+    with file(config_file) as cf:
+        config = commentjson.load(cf)
+        const_USB_TIMEOUT_MS = config['USB_timeout']
 
 def usb_ping_device(VID, PID):
   """

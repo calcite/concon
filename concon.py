@@ -25,7 +25,7 @@ from UCA_lib.bridge_config_parser import *
 from UCA_lib.supported_devices import *
 
 # Allow "ping" devices
-from UCA_lib.usb_driver import usb_ping_device
+from UCA_lib.usb_driver import usb_ping_device, usb_load_config
 
 # Time operations
 from time import sleep
@@ -247,9 +247,10 @@ USAGE
 
 
 
-  # Try get list of known devices
+  # Try get list of known devices and other configuration data
   try:
     devices = SupportedDevices(config_file)
+    usb_load_config(config_file)
     dev_list = devices.get_connected_devices()
   except Exception as e:
     msg = " Invalid file path or configuration file: {0}!\n".format(str(e))
