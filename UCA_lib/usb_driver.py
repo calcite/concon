@@ -29,7 +29,7 @@ from usb_driver_lib import *
 # is better (device can process more data meanwhile PC wait for response),
 # but in case that some data are lost, data throughput will be decreased. So
 # set this value wisely
-const_USB_TIMEOUT_MS = 50
+const_USB_TIMEOUT_MS = 700
 
 
 ##
