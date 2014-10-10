@@ -96,16 +96,22 @@ USAGE
         concon.py -w -d specific_file.cfg
 ''' % (program_shortdesc, str(__date__))
 
-
-
   # Default values
-  LOGGING_CONFIG_FILE = "config/logging_global.cfg"
+
+    # determine if application is a script file or frozen exe
+  if getattr(sys, 'frozen', False):
+    # we are running in a |PyInstaller| bundle
+    basedir = sys._MEIPASS
+  else:
+    # we are running in a normal Python environment
+    basedir = os.path.dirname(__file__)
+
+  LOGGING_CONFIG_FILE = os.path.join(basedir, "config/logging_global.cfg")
   DEVICE_CONFIG_FILE = "device.cfg"
   rw_mode = "r"
   verbose_lvl = 0
   use_first_dev = 0
-  CONFIG = "config/config.json"
-
+  CONFIG = os.path.join(basedir, "config/config.json")
 
 
   # Try to process arguments
@@ -199,6 +205,7 @@ USAGE
 
   except KeyboardInterrupt:
         ### handle keyboard interrupt ###
+        print "Interrupted"
         return 0
   except Exception as e:
         if DEBUG:

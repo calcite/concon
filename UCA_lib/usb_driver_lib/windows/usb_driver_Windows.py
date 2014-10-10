@@ -11,8 +11,10 @@ import pywinusb.hid as hid
 
 # Queue - FIFO/LIFO memory for multi-thread applications
 import Queue
+import sys
 
-from usb_driver_lib.device import DeviceStruct
+sys.path.append("UCA_lib/usb_driver_lib")
+from device import DeviceStruct
 
 # Queue object
 rx_buff = None

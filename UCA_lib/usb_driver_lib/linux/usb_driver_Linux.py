@@ -7,8 +7,10 @@
 
 import usb.core
 import usb.util
-from usb_driver_lib.device import DeviceStruct
 import sys
+sys.path.append("UCA_lib/usb_driver_lib")
+from device import DeviceStruct
+
 
 class HID_DEVICE_STRUCT(object):
   """
