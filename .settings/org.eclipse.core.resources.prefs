@@ -1,0 +1,10 @@
+eclipse.preferences.version=1
+encoding//UCA_lib/bridge_config_parser.py=utf-8
+encoding//UCA_lib/supported_devices.py=utf-8
+encoding//UCA_lib/uniprot.py=utf-8
+encoding//UCA_lib/usb_driver.py=utf-8
+encoding//UCA_lib/usb_driver_lib/linux/usb_driver_Linux.py=utf-8
+encoding//UCA_lib/usb_driver_lib/windows/pywinusb/hid/__init__.py=latin1
+encoding//UCA_lib/usb_driver_lib/windows/pywinusb/hid/core.py=latin1
+encoding//UCA_lib/usb_driver_lib/windows/usb_driver_Windows.py=utf-8
+encoding/concon.py=utf-8
