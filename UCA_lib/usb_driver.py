@@ -16,6 +16,7 @@ sys.path.append("usb_driver_lib")
 
 from usb_driver_lib import *
 
+import commentjson
 
 ##
 # @brief "Constants"
@@ -29,7 +30,7 @@ from usb_driver_lib import *
 # is better (device can process more data meanwhile PC wait for response),
 # but in case that some data are lost, data throughput will be decreased. So
 # set this value wisely
-const_USB_TIMEOUT_MS = 50
+const_USB_TIMEOUT_MS = 700
 
 
 ##
@@ -47,8 +48,12 @@ detected_os = None
 initialized = 0
 
 
-
-
+def usb_load_config(config_file):
+    global const_USB_TIMEOUT_MS
+    
+    with file(config_file) as cf:
+        config = commentjson.load(cf)
+        const_USB_TIMEOUT_MS = config['USB_timeout']
 
 def usb_ping_device(VID, PID):
   """
@@ -111,3 +116,12 @@ def usb_rx_data(device):
   
   return usb_lib_rx_data(device, const_USB_TIMEOUT_MS)
 
+def usb_list_devices(vid=None):
+    """
+    List all connected devices, optionally filter only devices with given Vendor ID.
+    
+    :param vid:    (Optional) Vendor ID.
+    
+    :return: List of connected devices (DeviceStructs).
+    """
+    return usb_list_connected_devices(vid)

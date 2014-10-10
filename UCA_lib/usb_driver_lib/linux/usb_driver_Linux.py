@@ -7,7 +7,7 @@
 
 import usb.core
 import usb.util
-
+from usb_driver_lib.device import DeviceStruct
 import sys
 
 class HID_DEVICE_STRUCT(object):
@@ -33,7 +33,7 @@ class HID_DEVICE_STRUCT(object):
 def usb_lib_ping_device(VID, PID):
   """
   Just test if selected device is connected
-  
+
   :param VID: VendorID
   :type VID: 16 bit number
   :param PID: ProductID
@@ -49,21 +49,21 @@ def usb_lib_ping_device(VID, PID):
 def usb_lib_open_device(VID, PID):
   """
   Open USB device. Should be called as first
-  
+
   :param VID: VendorID
   :type VID: 16 bit number
   :param PID: ProductID
   :type PID: 16 bit number
   """
-  
-  # Flags which indicate if IN/OUT EP was found 
+
+  # Flags which indicate if IN/OUT EP was found
   found_in_ep  = 0
   found_out_ep = 0
-  
-  
+
+
   dev_hid = HID_DEVICE_STRUCT()
-  
-  
+
+
   # Test if device exist
   dev = usb.core.find(idVendor = VID, idProduct=PID)
   if(dev == None):
@@ -71,8 +71,8 @@ def usb_lib_open_device(VID, PID):
   else:
     # Device found -> test if device have HID profile and if yes, then
     # detach kernel driver
-    
-    
+
+
     # Go through all configurations
     for cfg in dev:
       # Go through all interfaces
@@ -102,10 +102,10 @@ def usb_lib_open_device(VID, PID):
             dev_hid.interface = interface
             break
       if( (found_in_ep == 1) and (found_out_ep == 1) ):
-        # All OK -> break 
+        # All OK -> break
         break
-    
-    # If all OK -> return device interface with generic HID 
+
+    # If all OK -> return device interface with generic HID
     if( (found_in_ep == 1) and (found_out_ep == 1) ):
       # Test if driver is attached to kernel. If not, try to attach it back
       if(not dev.is_kernel_driver_active(dev_hid.interface)):
@@ -118,7 +118,7 @@ def usb_lib_open_device(VID, PID):
       # Detach kernel driver -> device under control (R/W)
       dev.detach_kernel_driver(dev_hid.interface)
       return dev_hid
-  
+
   # Else there is something wrong -> return 404 -> not found
   return 404
 
@@ -131,14 +131,14 @@ def usb_lib_close_device(device):
   # Attach device back to kernel
   usb.util.dispose_resources(device.device)
   device.device.attach_kernel_driver(device.interface)
-  
+
   return 0
 
 
 def usb_lib_tx_data(device, data_8bit, timeout):
   """
   Send data (64 bits per 8 bits) over USB interface
-  
+
   :param device: device description, witch programmer get when use function
    usb_open_device
   :param data_8bit: Data to TX (8 bytes -> 64 bits)
@@ -149,18 +149,18 @@ def usb_lib_tx_data(device, data_8bit, timeout):
   except:
     print("\n--------------------\nTX Timeout!\n---------------------\n")
     return -1
-  
+
   return 0
 
 
 def usb_lib_rx_data(device, timeout):
   """
   Receive data from USB interface (8x8bits)
-  
+
   :param device: Device description, witch programmer get when use function
    usb_open_device
   """
-  
+
   # Read 8 bytes
   try:
     in_data = device.ep_in.read(8, timeout)
@@ -169,16 +169,34 @@ def usb_lib_rx_data(device, timeout):
     print("\n--------------------\nRX Timeout!\n---------------------\n")
     in_data = [0xFF0]*8
     return in_data
-  
+
   return in_data
-  
+
   ret_data = [0x00]*8
-  
+
   print(in_data)
   for i in range(8):
     ret_data[i] = in_data[i]
   print(ret_data)
   print("-------------------------\n")
-  
-  
+
   return ret_data
+
+def usb_list_connected_devices(vid=None):
+    """
+    List all connected devices, optionally filter only devices with given
+    Vendor ID.
+
+    :param vid:     (Optiona) Vendor ID.
+
+    :return: List of connected devices (Device Structs)
+    """
+    kwargs = {'find_all': True, 'idVendor': vid,} if vid else \
+        {'find_all':True,}
+    devices = []
+
+    for device in usb.core.find(**kwargs):
+        name = usb.util.get_string(device, 100, device.iProduct)
+        devices.append(DeviceStruct(name, device.idVendor, \
+                                    device.idProduct))
+    return devices
