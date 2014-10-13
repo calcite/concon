@@ -14,6 +14,7 @@
 # @brief For logging events
 import logging
 import logging.config
+import descriptor_parser
 
 
 from HW_bridge_uniprot import *
@@ -134,7 +135,7 @@ class SETTING_STRUCT_CHANGE_PARAM(SETTING_STRUCT):
             
             # If there is some descriptor -> add it!
             if(self.descriptor != ""):
-                comment = self.descriptor
+                comment = descriptor_parser.process_descriptor_for_configfile(self.descriptor)
                 config.add_comment(section, comment)
             
             # Test for input and output type is void
