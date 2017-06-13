@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 ##
@@ -24,16 +23,16 @@
 def crc_xmodem_update( crc, data):
     # crc must not be higher than 16 bits
     crc = 0xFFFF & crc
-    
+
     # data must not be higher than 8 bits
     data = 0xFF & data
-    
+
     crc = crc ^ (data << 8)
     for i in range(8):
         if (crc & 0x8000):
             crc = (crc << 1) ^ 0x1021
         else:
             crc = crc << 1
-            
+
     # Return only 16 bits
     return (0xFFFF & crc)
