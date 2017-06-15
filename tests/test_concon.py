@@ -5,9 +5,9 @@
 
 
 import unittest
+
 from click.testing import CliRunner
 
-from concon import concon
 from concon import cli
 
 

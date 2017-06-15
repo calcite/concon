@@ -611,7 +611,7 @@ class BridgeConfigParser(object):
             try:
                 BridgeConfigParser.bridge = Bridge(self.VID, self.PID)
 
-            except Exception as e:
+            except IOError as e:
                 logger.error("[__init__][Bridge]" + str(e))
                 continue
 

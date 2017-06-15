@@ -1,13 +1,13 @@
-'''
+"""
 .. module:: usb_driver_lib.device
     :platform: Unix, Windows
     :synopsis: Classes for description of connected devices
 .. moduleauthor:: Martin Stejskal
 
-'''
+"""
 
 
-class DeviceStruct():
+class DeviceStruct:
   """
   Basic structure for every device
   """

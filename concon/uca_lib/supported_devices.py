@@ -3,17 +3,17 @@
 ##
 # In this file is simple list of supported devices for UniversalControlApp
 
-#from ConfigParser import *
-# For detection python version (2 or 3)
-from UCA_lib.usb_driver_lib.device import DeviceStruct
-from usb_driver import usb_list_devices
-import commentjson
 import sys
 
+import commentjson
+
+# from ConfigParser import *
+# For detection python version (2 or 3)
+from usb_driver import usb_list_devices
+
 if sys.version_info[0] == 2:
-  from ConfigParser import *
+    pass
 elif sys.version_info[0] == 3:
-  import configparser as ConfigParser
   from configparser import *
 
 

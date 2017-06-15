@@ -4,6 +4,7 @@
 """The setup script."""
 
 from setuptools import setup, find_packages
+import os
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -13,8 +14,13 @@ with open('HISTORY.rst') as history_file:
 
 requirements = [
     'Click>=6.0',
-    'commentjson>=0.6'
+    'commentjson>=0.6',
 ]
+
+if os.name == "nt":
+    requirements.append('pywinusb>=0.3.2')
+else:
+    requirements.append('pyusb==1.0.0')
 
 setup_requirements = [
     # TODO(JNev): put setup requirements (distutils extensions, etc.) here

@@ -17,8 +17,6 @@ Tool for configuration of Devices implementing "Uniprot" communication layer ove
 
 import sys
 
-sys.path.append("UCA_lib")
-
 # Allow create and load device depend configuration file
 from concon.uca_lib.bridge_config_parser import *
 
@@ -251,7 +249,7 @@ USAGE
         devices = SupportedDevices(config_file)
         usb_load_config(config_file)
         dev_list = devices.get_connected_devices()
-    except Exception as e:
+    except OSError as e:
         msg = " Invalid file path or configuration file: {0}!\n".format(str(e))
         logger.error("[SupportedDevices]" + msg)
         raise Exception(msg)
