@@ -1,23 +1,14 @@
 # -*- coding: utf-8 -*-
 
-##
-# In this file is simple list of supported devices for UniversalControlApp
-
-import sys
-
-import commentjson
-
+import yaml
 # from ConfigParser import *
 # For detection python version (2 or 3)
-from usb_driver import usb_list_devices
-
-if sys.version_info[0] == 2:
-    pass
-elif sys.version_info[0] == 3:
-  from configparser import *
+from usb_driver import UsbDriver
 
 
 class SupportedDevices(list):
+    """ Manage supported devices (VIDs, PIDs).
+    """
 
     def __init__(self, config_file=None):
         list.__init__(self)
@@ -27,16 +18,19 @@ class SupportedDevices(list):
             self.load_from_config(config_file)
 
     def load_from_config(self, config_file):
+        """ Load supported devices IDs (VIDs, PIDs) from a configuration file.
+        """
         with file(config_file) as cf:
-            config = commentjson.load(cf)
-            self.vid_list = config['Supported_VID']
-            self.pid_ignore_list = config['Ignored_PID']
+            config = yaml.load(cf)
+            self.vid_list = config['devices']['supported-vids']
+            self.pid_ignore_list = config['devices']['ignored-pids']
 
     def get_connected_devices(self):
+        """ Enlist all connected supported devices."""
         all_devices = []
         if self.vid_list:
             for vid in self.vid_list:
-                all_devices += usb_list_devices(vid)
+                all_devices += UsbDriver.usb_list_devices(vid)
 
         if self.pid_ignore_list:
             return [device for device in all_devices

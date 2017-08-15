@@ -1,0 +1,8 @@
+devices:
+    supported-vids: [5840, 1003, 1075]
+    ignored-pids: []
+
+usb:
+    #Timeout [msec] of device's response
+    #This should be generous to allow slow 8-bit devices to react even in complicated operations
+    timeout: 700

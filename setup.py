@@ -14,7 +14,7 @@ with open('HISTORY.rst') as history_file:
 
 requirements = [
     'Click>=6.0',
-    'commentjson>=0.6',
+    'PyYAML>=3.11'
 ]
 
 if os.name == "nt":
@@ -45,6 +45,7 @@ setup(
         ]
     },
     include_package_data=True,
+    package_data={'concon': ['config/*.*']},
     install_requires=requirements,
     license="MIT license",
     zip_safe=False,

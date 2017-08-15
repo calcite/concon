@@ -5,7 +5,6 @@
 #
 # Author: Martin Stejskal
 
-from ..device import DeviceStruct
 import usb.core
 import usb.util
 
@@ -27,7 +26,7 @@ class HidDeviceStruct(object):
         return "Interface number: {0}\n" \
                "EP IN address: {1}\n" \
                "EP OUT address: {2}\n" \
-            .format(self.interface.bInterfaceNumber,
+            .format(self.interface,
                     self.ep_in.bEndpointAddress,
                     self.ep_out.bEndpointAddress)
 
@@ -35,7 +34,7 @@ class HidDeviceStruct(object):
 def usb_lib_ping_device(vid, pid):
     """
     Just test if selected device is connected
-  
+
     :param vid: VendorID
     :type vid: 16 bit number
     :param pid: ProductID
@@ -51,7 +50,7 @@ def usb_lib_ping_device(vid, pid):
 def usb_lib_open_device(vid, pid):
     """
     Open USB device. Should be called as first
-  
+
     :param vid: VendorID
     :type vid: 16 bit number
     :param pid: ProductID
@@ -148,7 +147,7 @@ def usb_lib_close_device(device):
 def usb_lib_tx_data(device, data_8bit, timeout):
     """
     Send data (64 bits per 8 bits) over USB interface
-  
+
     :param device: device description, witch programmer get when use function
      usb_open_device
     :param data_8bit: Data to TX (8 bytes -> 64 bits)
@@ -167,7 +166,7 @@ def usb_lib_tx_data(device, data_8bit, timeout):
 def usb_lib_rx_data(device, timeout):
     """
     Receive data from USB interface (8x8bits)
-  
+
     :param device: Device description, witch programmer get when use function
      usb_open_device
     :param timeout:
@@ -200,18 +199,16 @@ def usb_list_connected_devices(vid=None):
     List all connected devices, optionally filter only devices with given
     Vendor ID.
 
-    :param vid:     (Optiona) Vendor ID.
+    :param vid:     (Optional) Vendor ID.
 
-    :return: List of connected devices (Device Structs)
+    :return: List of (name, vid, pid, uid) tuples.
     """
     kwargs = {'find_all': True, 'idVendor': vid, } if vid else \
         {'find_all': True, }
     devices = []
 
     for device in usb.core.find(**kwargs):
-        try:
-            name = usb.util.get_string(device, 100, device.iProduct)
-        except ValueError as e:
-            name = device.address
-        devices.append(DeviceStruct(name, device.idVendor, device.idProduct))
+        name = device.product or device.address
+        uid = device.bus * 0xff + device.address
+        devices.append((name, device.idVendor, device.idProduct, uid))
     return devices

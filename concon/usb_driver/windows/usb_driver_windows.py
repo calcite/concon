@@ -12,8 +12,6 @@ import Queue
 # Use pyWinUSB library for python and use shortcut "hid"
 import pywinusb.hid as hid
 
-from ..device import DeviceStruct
-
 # Queue object
 rx_buff = None
 
@@ -151,13 +149,13 @@ def usb_list_connected_devices(vid=None):
     
     :param vid:    (Optional) Vendor ID.
     
-    :return: List of connected devices (DeviceStructs).
+    :return: List of (name, vid, pid, uid) tuples.
     """
 
     kwargs = {'vendor_id': vid, } if vid else {}
     devices = []
     for device in hid.HidDeviceFilter(**kwargs).get_devices():
-        devices.append(DeviceStruct(device.product_name, device.vendor_id,
-                                    device.product_id))
+        devices.append((device.product_name, device.vendor_id,
+                        device.product_id, hash(device.device_path)))
 
     return devices

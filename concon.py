@@ -15,24 +15,21 @@ Tool for configuration of Devices implementing "Uniprot" communication layer ove
 @deffield    updated: 10.10.2014 by Josef Nevrly
 '''
 
-import sys
-
-# Allow create and load device depend configuration file
-from concon.uca_lib.bridge_config_parser import *
-
-# Get list of supported devices from configuration file
-from concon.uca_lib.supported_devices import *
-
-# Allow "ping" devices
-from concon.uca_lib.usb_driver import usb_ping_device, usb_load_config
-
-# Time operations
-
+import os
 # For processing arguments
 import sys
-import os
 from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
+
+# Get list of supported devices from configuration file
+from concon.supported_devices import *
+# Allow "ping" devices
+from concon.usb_driver import usb_ping_device, usb_load_config
+
+# Allow create and load device depend configuration file
+from concon.bridge_config_parser import *
+
+# Time operations
 
 __all__ = []
 __version__ = 0.8
@@ -105,8 +102,8 @@ USAGE
         # we are running in a normal Python environment
         basedir = os.path.dirname(__file__)
 
-    LOGGING_CONFIG_FILE = os.path.join(basedir, "config/logging_global.cfg")
-    DEVICE_CONFIG_FILE = "device.cfg"
+    LOGGING_CONFIG_FILE = os.path.join(basedir, "concon/config/logging_global.cfg")
+    DEVICE_CONFIG_FILE = "/device.cfg"
     rw_mode = "r"
     verbose_lvl = 0
     use_first_dev = 0
