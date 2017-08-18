@@ -2,7 +2,8 @@
 .. module:: usb_driver.device
     :platform: Unix, Windows
     :synopsis: Classes for description of connected devices
-.. moduleauthor:: Martin Stejskal, Josef Nevrly
+.. moduleauthor:: Martin Stejskal <mstejskal@alps.cz>
+.. moduleauthor:: Josef Nevrly <jnevrly@alps.cz>
 
 """
 from .driver import UsbDriver, UsbDriverException

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-
-"""Top-level package for ConCon."""
+"""Configuration Console (ConCon) tool for access and configuration of devices
+using the uniprot control protocol.
+"""
 
 __author__ = """Martin Stejskal"""
 __email__ = 'mstejskal@alps.cz'

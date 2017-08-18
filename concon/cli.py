@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """Console script for concon."""
@@ -50,7 +51,7 @@ def main(ctx, config, device, args=None):
         if config is None:
             config = pkg_resources.resource_filename('concon', DEFAULT_CONFIG)
 
-        with file(config) as cf:
+        with open(config, 'r') as cf:
             conf = yaml.load(cf)
     except OSError as e:
         msg = " Invalid file path or configuration file: {0}!\n".format(str(e))
@@ -75,9 +76,8 @@ def main(ctx, config, device, args=None):
         msg = "No supported device found! Please make sure, that device is\n" + \
               " properly connected. Also check if device is in supported\n" + \
               " devices list.\n"
-        # logger.error(msg)
-        report_errors(msg)
-        raise click.Abort()
+        click.secho(msg, fg='yellow')
+        exit()
 
     found_devices = sorted(found_devices, key=lambda device: device.name)
     ctx.obj['found_devices'] = found_devices

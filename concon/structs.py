@@ -2,7 +2,7 @@
 .. module:: concon.structs
     :platform: Unix, Windows
     :synopsis: Classes for description configuration/setting structures.
-.. moduleauthor:: Martin Stejskal, Josef Nevrly
+.. moduleauthor:: Martin Stejskal <mstejskal@alps.cz>
 
 """
 

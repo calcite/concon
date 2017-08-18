@@ -1,9 +1,12 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""
+.. module:: concon.usb_driver.windows.usb_driver_linux
+    :synopsis: USB driver wrapper for Linux support. Uses pyusb library.
 
-# USB driver for Linux. Use pyusb library
-#
-# Author: Martin Stejskal
+.. moduleauthor:: Martin Stejskal <mstejskal@alps.cz>
+.. moduleauthor:: Josef Nevrly <jnevrly@alps.cz>
+
+"""
 
 import usb.core
 import usb.util

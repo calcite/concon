@@ -1,14 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-    .. module: concon.bridge_config_parser
-    .. synopsis: Implementation of the file configuration parser.
+.. module:: concon.bridge_config_parser
+    :synopsis: Implementation of the file configuration parser.
+.. moduleauthor:: Martin Stejskal <mstejskal@alps.cz>
+
+Create, load and parse configuration files.
 
 """
 import re
 from .parser_utils import ConfigParserWithComments
-from structs import SettingStructChangeParam, GroupParam
+from .structs import SettingStructChangeParam, GroupParam
 
-from HW_bridge_uniprot import *
+from .HW_bridge_uniprot import *
 
 # For detection python version (2 or 3)
 if sys.version_info[0] == 2:

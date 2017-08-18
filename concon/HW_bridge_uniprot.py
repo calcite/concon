@@ -1,34 +1,29 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""
+.. module:: concon.HW_bridge_uniprot
+    :synopsis: Bridge between uniprot and higher layer from generic driver.
+.. moduleauthor:: Martin Stejskal <mstejskal@alps.cz>
 
-##
-# @file
-#
-# @brief: Bridge between universal protocol and hardware
-#
-# Functions for higher layer:
-#  # Do initialization
-#  bridge = Bridge()    # Initialization and download metadata
-#
-#  # Get number of max Device_ID (used index)
-#  max_DID = bridge.get_max_Device_ID()
-#
-#  # Get downloaded metadata. User can select device thru index. Maximum index
-#  # is max_DID.
-#  print(bridge.get_metadata[max_DID])
-#
-#  bridge.close()  # should be called when no communication is needed
-#                  # (at the end of program)
-#
-#
-# @author: Martin Stejskal
-#
-# Created: 31.03.2014
+Functions for higher layer:
 
-##
-# @brief For logging events
+.. code-block:: python
 
-from uniprot import *
+     # Do initialization
+     bridge = Bridge()    # Initialization and download metadata
+
+     # Get number of max Device_ID (used index)
+     max_DID = bridge.get_max_Device_ID()
+
+     # Get downloaded metadata. User can select device thru index. Maximum index
+     # is max_DID.
+     print(bridge.get_metadata[max_DID])
+
+     bridge.close()  # should be called when no communication is needed
+                     # (at the end of program)
+
+"""
+
+from .uniprot import *
 from . import ConConError
 
 # For binary operation

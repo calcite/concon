@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
+"""
+.. module:: concon.supported_devices
+    :synopsis: Representation of supported devices recognized by concon.
 
-from usb_driver import UsbDriver
+.. moduleauthor:: Josef Nevrly <jnevrly@alps.cz>
+.. moduleauthor:: Martin Stejskal <mstejskal@alps.cz>
+
+"""
+
+from .usb_driver import UsbDriver
 
 
 class SupportedDevices(list):

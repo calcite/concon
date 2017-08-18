@@ -1,5 +1,12 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""
+.. module:: concon.usb_driver.windows.usb_driver_windows
+    :synopsis: USB driver wrapper for Win support.
+
+.. moduleauthor:: Martin Stejskal <mstejskal@alps.cz>
+.. moduleauthor:: Josef Nevrly <jnevrly@alps.cz>
+
+"""
 
 # USB driver for Windows
 #
@@ -19,7 +26,7 @@ rx_buff = None
 def in_sample_handler(data):
     """
     Callback function for "set_raw_data_handler"
-    
+
     :param data: Raw data
     :type data: 8 bit values
     """
@@ -32,7 +39,7 @@ def in_sample_handler(data):
 def usb_lib_ping_device(VID, PID):
     """
     Just test if selected device is connected
-    
+
     :param VID: VendorID
     :type VID: 16 bit number
     :param PID: ProductID
@@ -53,7 +60,7 @@ def usb_lib_ping_device(VID, PID):
 def usb_lib_open_device(vid, pid):
     """
     Open USB device. Should be called as first
-    
+
     :param vid: VendorID
     :type vid: 16 bit number
     :param pid: ProductID
@@ -95,7 +102,7 @@ def usb_lib_tx_data(device, data_8bit, timeout):
     # TODO - cleanup - timeout not used
     """
     Send data (64 bits per 8 bits) over USB interface
-    
+
     :param device: device description, witch programmer get when use function
      usb_open_device
     :param data_8bit: Data to TX (8 bytes -> 64 bits)
@@ -122,7 +129,7 @@ def usb_lib_rx_data(device, timeout):
     # TODO - cleanup - device not used
     """
     Receive data from USB interface (8x8bits)
-    
+
     :param device: Device description, witch programmer get when use function
      usb_open_device
     """
@@ -144,11 +151,11 @@ def usb_lib_rx_data(device, timeout):
 
 def usb_list_connected_devices(vid=None):
     """
-    List all connected devices, optionally filter 
+    List all connected devices, optionally filter
     only devices with given Vendor ID.
-    
+
     :param vid:    (Optional) Vendor ID.
-    
+
     :return: List of (name, vid, pid, uid) tuples.
     """
 

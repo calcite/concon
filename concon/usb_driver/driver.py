@@ -2,7 +2,9 @@
 .. module:: concon.usb_driver.driver
     :platform: Unix, Windows
     :synopsis: Classes for description of connected devices
-.. moduleauthor:: Martin Stejskal, Josef Nevrly
+
+.. moduleauthor:: Martin Stejskal <mstejskal@alps.cz>
+.. moduleauthor:: Josef Nevrly <jnevrly@alps.cz>
 
 """
 import os

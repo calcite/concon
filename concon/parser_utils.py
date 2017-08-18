@@ -1,8 +1,8 @@
 """
 .. module:: concon.parser_utils
     :platform: Unix, Windows
-    :synopsis: Utilities for convenient config file parsing. 
-.. moduleauthor:: Martin Stejskal, Josef Nevrly
+    :synopsis: Utilities for convenient config file parsing.
+.. moduleauthor:: Martin Stejskal <mstejskal@alps.cz>
 
 """
 import sys

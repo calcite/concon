@@ -1,21 +1,15 @@
+# -*- coding: utf-8 -*-
 """
-  .. module: concon.uniprot
-  .. synopsis: Universal protocol designed for 8 bit embedded systems
+.. module:: concon.uniprot
+    :synopsis: Universal protocol designed for 8 bit embedded systems
 
-    Slowly remove print_if_debug and replace by logger (logging)
+.. moduleauthor:: Martin Stejskal <mstejskal@alps.cz>
 
-    Functions for higher layer:
-    Uniprot_init() - must be called first
-    Uniprot_close() - should be called when no communication is needed
-                   (at the end of program)
-
-    Uniprot_USB_rx_data() - when want RX data
-    Uniprot_USB_tx_data( i_tx_data ) - when want TX data
 """
 
 import logging.config
-from crc16_xmodem import *
-from usb_driver import UsbDriver, UsbDevice
+from .crc16_xmodem import *
+from .usb_driver import UsbDriver, UsbDevice
 
 logger = logging.getLogger('Uniprot <---> USB')
 
