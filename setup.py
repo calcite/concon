@@ -32,13 +32,13 @@ test_requirements = [
 
 setup(
     name='concon',
-    version='0.9.0',
+    version='0.9.1',
     description="Universal configuration tool for USB devices implementing the Uniprot (HID) communication layer.",
     long_description=readme + '\n\n' + history,
     author="Martin Stejskal",
     author_email='mstejskal@alps.cz',
     url='https://github.com/JNev/concon',
-    packages=find_packages(include=['concon']),
+    packages=find_packages(),
     entry_points={
         'console_scripts': [
             'concon=concon.cli:main'

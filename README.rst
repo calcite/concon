@@ -32,6 +32,13 @@ Devices must fulfill following to communicate with ConCon:
     with any low level driver) and ``HW bridge uniprot`` (data from
     generic driver are send through uniprot)
 
+Installation
+------------
+
+The easiest way to install ConCon is with pip (pip3)::
+
+    $ sudo pip install git+https://github.com/calcite/concon.git
+
 Workflow
 --------
 
