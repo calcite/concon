@@ -11,7 +11,7 @@ import yaml
 from .supported_devices import SupportedDevices
 from .usb_driver import UsbDriver
 from .bridge_config_parser import BridgeConfigParser
-from . import ConConError
+from .core import ConConError
 
 # DEFAULT_CONFIG = 'config/config.json'
 DEFAULT_CONFIG = 'config/config.yml'
@@ -88,7 +88,7 @@ def main(ctx, config, device, args=None):
         if device is None:
             # Show device selection prompt
             click.secho("More than one configurable devices detected.\n"
-                        "Choose one from below and run again with"
+                        "Choose one from below and run concon with"
                         " -d [0 ~ {0}] option.".format(len(found_devices)-1),
                         fg='yellow')
             ctx.invoke(device_list)
@@ -114,6 +114,7 @@ def write(ctx, file_name):
     device = ctx.obj['device']
     label = "Connecting to {0}".format(device.name)
     # Try to initialize bridge
+    cfg_pars = None
     try:
         with click.progressbar(length=10, show_eta=False, label=label) as bar:
             cfg_pars = BridgeConfigParser(device.vid, device.pid,
@@ -136,7 +137,8 @@ def write(ctx, file_name):
         report_errors(ce)
     finally:
         # If something fails -> try at least close device properly
-        cfg_pars.close_device()
+        if cfg_pars:
+            cfg_pars.close_device()
 
 
 @main.command()
@@ -149,6 +151,7 @@ def read(ctx, file_name):
     label = "Reading configuration from {0}".format(device.name)
 
     # Try to initialize bridge
+    cfg_pars = None
     try:
         with click.progressbar(length=10, show_eta=False, label=label) as bar:
             cfg_pars = BridgeConfigParser(device.vid, device.pid,
@@ -161,7 +164,8 @@ def read(ctx, file_name):
     except ConConError as ce:
         report_errors(ce)
     finally:
-        cfg_pars.close_device()
+        if cfg_pars:
+            cfg_pars.close_device()
 
 
 @main.command(name="list")

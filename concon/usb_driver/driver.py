@@ -9,7 +9,7 @@
 """
 import os
 import yaml
-from .. import ConConError
+from ..utils import ConConError
 
 if os.name == "posix":
     from .linux import *

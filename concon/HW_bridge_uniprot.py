@@ -24,7 +24,7 @@ Functions for higher layer:
 """
 
 from .uniprot import *
-from . import ConConError
+from .core import ConConError
 
 # For binary operation
 import struct

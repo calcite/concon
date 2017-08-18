@@ -47,6 +47,24 @@ The command-line tool is usually used in the following workflow:
 
     $ concon write config-file.cfg
 
+In case of several connected devices
+++++++++++++++++++++++++++++++++++++
+
+If more then one Uniprot device is connected to the same PC, the device ID
+needs to be specified as command-line parameter.
+
+Get list of devices::
+
+    $ concon list
+      More than one configurable devices detected.
+      Choose one from below and run again with -d [0 ~ 1] option.
+       Dev# 0 <Sonochan mkII #00>
+       Dev# 1 <Sonochan mkII #01>
+
+Using one particular device::
+
+    $ concon -d 0 read config-file.cfg
+
 
 Protocol/Description field syntax detail:
 -----------------------------------------
