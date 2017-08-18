@@ -29,6 +29,7 @@
 # @brief For logging events
 
 from uniprot import *
+from . import ConConError
 
 # For binary operation
 import struct
@@ -41,7 +42,7 @@ import sys
 logger = logging.getLogger('Bridge HW <---> uniprot')
 
 
-class BridgeException(Exception):
+class BridgeException(ConConError):
     pass
 
 
@@ -69,6 +70,90 @@ class BridgeError(BridgeException):
     pass
 
 
+class ResCodes(object):
+    SUCCESS = 0
+    FAIL = 1
+    INCORRECT_PARAMETER = 2
+    INCORRECT_CMD_ID = 3
+    CMD_ID_NOT_EQUAL_IN_FLASH = 4
+    INCORRECT_DEVICE_ID = 5
+
+    STRINGS = {SUCCESS: "Success",
+               FAIL: "Fail",
+               INCORRECT_PARAMETER: "Incorrect input parameter",
+               INCORRECT_CMD_ID: "Incorrect CMD ID",
+               INCORRECT_DEVICE_ID: "Incorrect Device ID",
+               CMD_ID_NOT_EQUAL_IN_FLASH:
+                   "CMD ID is not equal with CMD ID found at flash on device",
+               }
+
+    @classmethod
+    def code_to_string(cls, code):
+        """ Convert result code number to string.
+
+        :param code:  Code ID/number.
+        :return: Result code string.
+        """
+        return cls.STRINGS.get(code,
+                               "Unknown error. Please update software "
+                               "with device version")
+
+
+# This definitions must be same on AVR too!
+class DataTypes(object):
+    VOID = 0
+    CHAR = 1
+    INT = 2
+    INT8 = 3
+    INT16 = 4
+    INT32 = 5
+    UINT = 6
+    UINT8 = 7
+    UINT16 = 8
+    UINT32 = 9
+    FLOAT = 10
+    GROUP = 11
+
+    STRINGS = {VOID: "void",
+               CHAR: "char",
+               INT: "int (32b)",
+               INT8: "int8",
+               INT16: "int16",
+               INT32: "int32",
+               UINT: "uint (32b)",
+               UINT8: "uint8",
+               UINT16: "uint16",
+               UINT32: "uint32",
+               FLOAT: "float",
+               GROUP: "group"
+               }
+
+    @classmethod
+    def data_type_to_str(cls, i_data_type):
+        """ Convert data type number to string.
+
+        :param i_data_type:  Code for data type
+        :return:
+        """
+        return cls.STRINGS.get(
+            i_data_type, "Unknown data type. Please update software "
+                         "with device version")
+
+
+class BridgeMetadata(object):
+    """ Dynamic structure for metadata. Default should be invalid values.
+    """
+    def __init__(self):
+        self.max_cmd_id = -1
+        self.serial = -1
+        self.descriptor = ""
+
+    def __str__(self):
+        return " {0}\n Serial: {1}\n Max CMD ID: {2}\n" \
+               "<------------------------>" \
+            .format(self.descriptor, self.serial, self.max_cmd_id)
+
+
 class Bridge(object):
     MAX_RETRY_CNT = 3
 
@@ -85,78 +170,22 @@ class Bridge(object):
     STATE_SEND_RETURN_CODE_AND_METADATA = 6
     STATE_SEND_RETURN_CODE_AND_SETTING = 7
 
-    class RES_CODE:
-        GD_SUCCESS = 0
-        GD_FAIL = 1
-        GD_INCORRECT_PARAMETER = 2
-        GD_INCORRECT_CMD_ID = 3
-        GD_CMD_ID_NOT_EQUAL_IN_FLASH = 4
-        GD_INCORRECT_DEVICE_ID = 5
+    def __init__(self, vid, pid, timeout, progress_bar=None):
+        """ Connect to the target device if possible.
 
-    # This definitions must be same on AVR too!
-    class DATA_TYPES:
-        void_type = 0
+        :param vid:  USB VID
+        :param pid:  USB PID
+        """
+        self.vid = vid  # USB VendorID
+        self.pid = pid  # USB ProductID
 
-        char_type = 1
-
-        int_type = 2
-        int8_type = 3
-        int16_type = 4
-        int32_type = 5
-
-        uint_type = 6
-        uint8_type = 7
-        uint16_type = 8
-        uint32_type = 9
-
-        float_type = 10
-
-        group_type = 11
-
-    DATA_TYPE_STRS = {DATA_TYPES.void_type: "void",
-                      DATA_TYPES.char_type: "char",
-                      DATA_TYPES.int_type: "int (32b)",
-                      DATA_TYPES.int8_type: "int8",
-                      DATA_TYPES.int16_type: "int16",
-                      DATA_TYPES.int32_type: "int32",
-                      DATA_TYPES.uint_type: "uint (32b)",
-                      DATA_TYPES.uint8_type: "uint8",
-                      DATA_TYPES.uint16_type: "uint16",
-                      DATA_TYPES.uint32_type: "uint32",
-                      DATA_TYPES.float_type: "float",
-                      DATA_TYPES.group_type: "group"
-                      }
-
-    # @brief Dynamic structure for metadata. Default should be invalid values
-    class BRIDGE_METADATA:
-        def __init__(self):
-            self.MAX_CMD_ID = -1
-            self.serial = -1
-            self.descriptor = ""
-
-        def __str__(self):
-            return " {0}\n Serial: {1}\n Max CMD ID: {2}\n" \
-                   "<------------------------>" \
-                .format(self.descriptor, self.serial, self.MAX_CMD_ID)
-
-    ##
-    # @brief: Connect to the target device if possible
-    def __init__(self, VID, PID):
-        self.VID = VID  # USB VendorID
-        self.PID = PID  # USB ProductID
-        ##
-        # @brief Global variables
-        # @{
-
-        ##
-        # @brief Number of detected devices (-1 -> error -> so far none)
+        # Number of detected devices (-1 -> error -> so far none)
         self.i_num_of_devices = -1
-
-        # @}
+        self._uniprot = None
 
         try:
             logger.debug("[__init__] Trying initialize uniprot")
-            Uniprot_init(self.VID, self.PID)
+            self._uniprot = Uniprot(self.vid, self.pid, timeout=timeout)
             logger.debug("[__init__] Getting num. of devices")
             self.get_number_of_devices_from_device()
 
@@ -214,17 +243,27 @@ class Bridge(object):
         # Load actual configuration from device to RAM
         self.s_settings_in_RAM = []
 
+        # Optional progressbar update
+        if progress_bar:
+            total_length = 0
+            for i_DID in range(self.i_num_of_devices + 1):
+                total_length += self.s_metadata[i_DID].max_cmd_id + 1
+            progress_bar.length = total_length
+
         # Go thru all devices
         for i_DID in range(self.i_num_of_devices + 1):
             # Thru all commands
 
             temp = []
-            for i_CMD_ID in range(self.s_metadata[i_DID].MAX_CMD_ID + 1):
+            for i_CMD_ID in range(self.s_metadata[i_DID].max_cmd_id + 1):
                 try:
                     logger.debug("[__init__] Trying to get setting from device"
                                  "{0} (CMD: {1})".format(i_DID, i_CMD_ID))
                     temp.append(
                         self.get_setting_from_device(i_DID, i_CMD_ID))
+
+                    if progress_bar:
+                        progress_bar.update(1)
 
                 # And check all exceptions
                 except BridgeDeviceNotFound as e:
@@ -256,17 +295,16 @@ class Bridge(object):
             self.s_settings_in_RAM.append(temp)
 
         for i_DID in range(self.i_num_of_devices + 1):
-            for i_CMD_ID in range(self.s_metadata[i_DID].MAX_CMD_ID + 1):
+            for i_CMD_ID in range(self.s_metadata[i_DID].max_cmd_id + 1):
                 logger.debug("DID: " + str(i_DID) + " | CMD: "
                              + str(i_CMD_ID) + "\n" +
                              str(self.s_settings_in_RAM[i_DID][i_CMD_ID]))
 
-
-    ##
-    # @brief Close device (stop using USB interface)
     def close(self):
+        """ Close device (stop using USB interface).
+        """
         try:
-            Uniprot_close()
+            self._uniprot.close()
             logger.info("[close] Device closed")
         except UniprotExceptionDeviceNotFound as e:
             # Even if this exception occurs, program can re-initialize device
@@ -274,119 +312,108 @@ class Bridge(object):
             logger.error("[close][Uniprot close] " + str(e))
             raise BridgeDeviceNotFound("[Uniprot close] " + str(e))
 
-    ##
-    # @brief Convert result code number to string
-    #
-    # @param i_res_code: Code ID/number
-    def res_code_to_str(self, i_res_code):
-        if (i_res_code == Bridge.RES_CODE.GD_SUCCESS):
-            return "Success"
-        if (i_res_code == Bridge.RES_CODE.GD_FAIL):
-            return "Fail"
-        if (i_res_code == Bridge.RES_CODE.GD_CMD_ID_NOT_EQUAL_IN_FLASH):
-            return "CMD ID is not equal with CMD ID found at flash on device"
-        if (i_res_code == Bridge.RES_CODE.GD_INCORRECT_CMD_ID):
-            return "Incorrect CMD ID"
-        if (i_res_code == Bridge.RES_CODE.GD_INCORRECT_DEVICE_ID):
-            return "Incorrect Device ID"
-        if (i_res_code == Bridge.RES_CODE.GD_INCORRECT_PARAMETER):
-            return "Incorrect input parameter"
-        else:
-            return "Unknown error. Please update software with device version"
-
-    ##
-    # @brief Convert data type number to string
-    #
-    # @param i_data_type: Code for data type
-    @classmethod
-    def data_type_to_str(cls, i_data_type):
-        return cls.DATA_TYPE_STRS.get(i_data_type,
-                                      "Unknown data type. Please update software with device version")
-
-    def getSignedNumber(self, number, bitLength):
-        mask = (2 ** bitLength) - 1
-        if number & (1 << (bitLength - 1)):
+    @staticmethod
+    def get_signed_number(number, bit_length):
+        mask = (2 ** bit_length) - 1
+        if number & (1 << (bit_length - 1)):
             return number | ~mask
         else:
             return number & mask
 
-    def getFloatNumber(self, number):
+    @staticmethod
+    def get_float_number(number):
         # Create byte array from unsigned integer
-        bytes = struct.pack('I', number)
-        # Convert bytes to float
-        float = struct.unpack('f', bytes)
+        temp_bytes = struct.pack('I', number)
+        # Convert temp_bytes to float
+        temp_float = struct.unpack('f', temp_bytes)
         # Return just first float number (just 4 case)
-        return float[0]
+        return temp_float[0]
 
-
-    ##
-    # @brief Convert variable to correct data type
-    #
-    # Because uniprot send data as byte stream it is up to this layer to
-    # retype variables back to origin type
-    # @param
     def retype(self, i_value, i_data_type):
-        if (i_data_type == Bridge.DATA_TYPES.char_type):
+        """ Convert variable to correct data type.
+
+        Because uniprot send data as byte stream it is up to this layer to
+        retype variables back to origin type
+
+        :param i_value: Value to by type-cast.
+        :param i_data_type: Type to cast to.
+        :return: Type-casted value.
+        """
+        if i_data_type == DataTypes.CHAR:
             # This is python version dependent
-            if (sys.version_info[0] == 2):
+            if sys.version_info[0] == 2:
                 return str(unichr(i_value))
-            elif (sys.version_info[0] == 3):
+            elif sys.version_info[0] == 3:
                 return str(chr(i_value))
             else:
-                raise ("Unsupported python version")
-        if (i_data_type == Bridge.DATA_TYPES.float_type):
-            return self.getFloatNumber(i_value)
-        if (i_data_type == Bridge.DATA_TYPES.int16_type):
-            return self.getSignedNumber(i_value, 16)
-        if (i_data_type == Bridge.DATA_TYPES.int32_type):
-            return self.getSignedNumber(i_value, 32)
-        if (i_data_type == Bridge.DATA_TYPES.int8_type):
-            return self.getSignedNumber(i_value, 8)
-        if (i_data_type == Bridge.DATA_TYPES.int_type):
-            return self.getSignedNumber(i_value, 32)
-        if (i_data_type == Bridge.DATA_TYPES.uint16_type):
+                raise BridgeError("Unsupported python version")
+
+        if i_data_type == DataTypes.FLOAT:
+            return self.get_float_number(i_value)
+
+        if i_data_type == DataTypes.INT16:
+            return self.get_signed_number(i_value, 16)
+
+        if i_data_type == DataTypes.INT32:
+            return self.get_signed_number(i_value, 32)
+
+        if i_data_type == DataTypes.INT8:
+            return self.get_signed_number(i_value, 8)
+
+        if i_data_type == DataTypes.INT:
+            return self.get_signed_number(i_value, 32)
+
+        if i_data_type == DataTypes.UINT16:
             return i_value
-        if (i_data_type == Bridge.DATA_TYPES.uint32_type):
+
+        if i_data_type == DataTypes.UINT32:
             return i_value
-        if (i_data_type == Bridge.DATA_TYPES.uint8_type):
+
+        if i_data_type == DataTypes.UINT8:
             return i_value
-        if (i_data_type == Bridge.DATA_TYPES.uint_type):
+
+        if i_data_type == DataTypes.UINT:
             return i_value
-        if (i_data_type == Bridge.DATA_TYPES.void_type):
+
+        if i_data_type == DataTypes.VOID:
             return None
-        if (i_data_type == Bridge.DATA_TYPES.group_type):
+
+        if i_data_type == DataTypes.GROUP:
             return i_value
         else:
             message = "[retype] Unknown data type (" + str(i_data_type) + \
                       ")\n"
             logger.error(message)
 
-    ##
-    # @brief Send request and get response
-    #
-    # TX packet and RX packet must be configured before call this function
-    #
-    # @param i_tx_buffer: Data to send
-    # @return: received data
     def send_request_get_data(self, i_tx_buffer):
+        """ Send request and get response.
+
+        TX packet and RX packet must be configured before call this function
+
+        :param i_tx_buffer:  Data to send.
+        :return:  received data.
+        """
         # Reset retry count
         i_retry_cnt = 0
 
+        i_rx_buffer = None
+
         # Inform if request should be transmitted again
-        send_request_again = 0
+        # send_request_again = 0
 
         # Main loop - TX data + RX data
-        while (1):
+        while True:
             # Reset value -> request will be send anyway (next while)
             send_request_again = 0
             # Secondary loop - try TX data
-            while (1):
-                if (i_retry_cnt > 0):
+
+            while True:
+                if i_retry_cnt > 0:
                     logger.warn("[send_request_get_data][Uniprot TX data]"
                                 " Retry count: " + str(i_retry_cnt) + "\n")
                 try:
                     # Try to send request
-                    status = Uniprot_USB_tx_data(i_tx_buffer)
+                    status = self._uniprot.usb_tx_data(i_tx_buffer)
 
                 except UniprotExceptionDeviceNotFound as e:
                     logger.error("[send_request_get_data]"
@@ -406,8 +433,7 @@ class Bridge(object):
                     logger.critical("[send_request_get_data]"
                                     "[Uniprot TX data]"
                                     + str(e))
-                    raise BridgeDeviceRxBufferOverflow("[Uniprot"
-                                                                    " TX data]"
+                    raise BridgeDeviceRxBufferOverflow("[Uniprot TX data]"
                                                        + str(e))
 
                 except UniprotExceptionResetSuccess as e:
@@ -416,17 +442,16 @@ class Bridge(object):
                                 + str(e))
                     # Send data once again, but first clear input buffers.
                     # Wait until 5 dummy time-out packets received
-                    Uniprot_USB_clear_rx_buffer(5)
+                    self._uniprot.usb_clear_rx_buffer(5)
 
                     # And then try
                     i_retry_cnt = i_retry_cnt + 1
-                    if (i_retry_cnt > Bridge.MAX_RETRY_CNT):
+                    if i_retry_cnt > Bridge.MAX_RETRY_CNT:
                         logger.critical("[send_request_get_data]"
                                         " Reset retry count reach"
                                         "maximum (TX data).\n")
-                        raise BridgeResetFail(" Reset retry count"
-                                                         " reach maximum"
-                                                         " (TX data).\n")
+                        raise BridgeResetFail("Reset retry count reach maximum"
+                                              " (TX data).\n")
                 else:
                     # Else TX data without exception -> break while
                     break
@@ -437,12 +462,12 @@ class Bridge(object):
             # Secondary loop - try RX data
 
             # RX data (one setting)
-            while (1):
-                if (i_retry_cnt > 0):
+            while True:
+                if i_retry_cnt > 0:
                     logger.warn("[send_request_get_data][Uniprot RX data]"
                                 " Retry count: " + str(i_retry_cnt) + "\n")
                 try:
-                    i_rx_buffer = Uniprot_USB_rx_data()
+                    i_rx_buffer = self._uniprot.usb_rx_data()
                 except UniprotExceptionDeviceNotFound as e:
                     logger.error("[send_request_get_data][Uniprot RX data]"
                                  + str(e))
@@ -454,17 +479,16 @@ class Bridge(object):
 
                     # Send data once again, but first clear input buffers.
                     # Wait until 5 dummy time-out packets received
-                    Uniprot_USB_clear_rx_buffer(5)
+                    self._uniprot.usb_clear_rx_buffer(5)
 
                     i_retry_cnt = i_retry_cnt + 1
-                    if (i_retry_cnt > Bridge.MAX_RETRY_CNT):
+                    if i_retry_cnt > Bridge.MAX_RETRY_CNT:
                         logger.critical("[send_request_get_data]"
                                         "[Uniprot RX data]"
                                         " Reset retry count"
                                         " reach maximum (RX data).\n")
-                        raise BridgeResetFail(" Reset retry count"
-                                                         " reach maximum"
-                                                         " (RX data).\n")
+                        raise BridgeResetFail("Reset retry count reach maximum"
+                                              " (RX data).\n")
                     else:
                         # Must send request again (reset was done, so
                         # everything is set to default -> request was removed.
@@ -477,31 +501,30 @@ class Bridge(object):
                     break
             # Test if all OK (send_request_again = 0) or if request should be
             # send once again due to reset
-            if (send_request_again == 0):
+            if send_request_again == 0:
                 # If all OK -> break even main while cycle
                 break
 
         # If all OK -> return RX data
         return i_rx_buffer
 
-
-    ##
-    # @brief: Try to get number of devices connected to target
-    #
-    # @return: Number of detected devices connected to target
     def get_number_of_devices_from_device(self):
+        """ Try to get number of devices connected to target.
+
+        :return:  Number of detected devices connected to target.
+        """
         # Fill TX buffer
         i_tx_buffer = [0x00] * 2
         # Device ID - ALWAYS MUST BE 0 !!!
-        i_tx_buffer[0] = 0x00;
+        i_tx_buffer[0] = 0x00
         # Bridge command (request number)
         i_tx_buffer[1] = Bridge.STATE_REQUEST_GET_NUM_OF_DEV
 
         # Configure TX packet
-        Uniprot_config_TX_packet(2)
+        self._uniprot.config_tx_packet(2)
 
         # Configure RX packet (expect 3B)
-        Uniprot_config_RX_packet(3)
+        self._uniprot.config_rx_packet(3)
 
         try:
             i_rx_buffer = self.send_request_get_data(i_tx_buffer)
@@ -526,14 +549,14 @@ class Bridge(object):
             raise BridgeResetFail(message)
 
         # Test if send Device ID is correct
-        if (i_rx_buffer[0] != 0):
+        if i_rx_buffer[0] != 0:
             # This should not happen. It is not big problem, but it is not
             # standard behaviour
             logger.warn("[get_number_of_devices_from_device]"
                         "[Uniprot RX data] Device ID is not 0x00!")
 
         # Test if there is some problem on AVR side
-        if (i_rx_buffer[1] == 0):
+        if i_rx_buffer[1] == 0:
             # No problem, everything works
 
             self.i_num_of_devices = i_rx_buffer[2]
@@ -542,21 +565,22 @@ class Bridge(object):
 
         logger.error("[get_number_of_devices_from_device]"
                      " Error code from AVR is not 0, but it should be!"
-                     " Error: " + self.res_code_to_str(i_rx_buffer[1]) + "\n")
+                     " Error: " + ResCodes.code_to_string(i_rx_buffer[1])
+                     + "\n")
 
         # Else exception - this never should happen
-        raise BridgeError(" Error code from AVR is not 0, but it"
-                                    " should be!\n")
+        raise BridgeError(" Error code from AVR is not 0, but it should be!\n")
 
-    def get_metadata_from_device(self, i_Device_ID):
+    def get_metadata_from_device(self, i_device_id):
 
         # Check if Device ID is valid
-        if (i_Device_ID > self.i_num_of_devices):
+        if i_device_id > self.i_num_of_devices:
             message = " Invalid Device ID. "
-            if (self.i_num_of_devices < 0):
-                message = message + "It looks that bridge was not" + \
-                          " initialized. Please call function Uniprot_init() and" + \
-                          " check all exceptions.\n"
+            if self.i_num_of_devices < 0:
+                message = message + "It looks that bridge was not " \
+                                    "initialized. Please call function" \
+                                    " Uniprot_init() and check " \
+                                    "all exceptions.\n"
             else:
                 # It look that bridge was initialized, but Device ID is invalid
                 message = message + "Maximum Device ID is " + \
@@ -569,15 +593,15 @@ class Bridge(object):
         # Fill TX buffer by zeros
         i_tx_buffer = [0x00] * 2
         # Device ID
-        i_tx_buffer[0] = i_Device_ID
+        i_tx_buffer[0] = i_device_id
         # Bridge command (request ID)
         i_tx_buffer[1] = Bridge.STATE_REQUEST_GET_METADATA
 
         # Configure TX packet
-        Uniprot_config_TX_packet(2)
+        self._uniprot.config_tx_packet(2)
 
         # Configure RX packet
-        Uniprot_config_RX_packet(Bridge.MAX_RX_BUFFER_BYTES)
+        self._uniprot.config_rx_packet(Bridge.MAX_RX_BUFFER_BYTES)
 
         try:
             i_rx_buffer = self.send_request_get_data(i_tx_buffer)
@@ -602,22 +626,22 @@ class Bridge(object):
             raise BridgeResetFail(message)
 
         # Test if received Device ID is same
-        if (i_rx_buffer[0] != i_Device_ID):
+        if i_rx_buffer[0] != i_device_id:
             # This should not happen.
             message = " Got different Device ID (" + str(i_rx_buffer[0]) + \
                       "), but expected " + str(
-                i_Device_ID) + " . This is failure of" \
+                i_device_id) + " . This is failure of" \
                                "communication protocol."
             logger.warn("[get_metadata_from_device]" + message)
             raise BridgeError(message)
 
         # Test return code - never should happen, but...
-        if (i_rx_buffer[1] != 0):
+        if i_rx_buffer[1] != 0:
             # This never happen. Only one thing that may fail is wrong Device
             # ID, but this is checked before request is send. It can fail only
             # when whole protocol fail -> developer should fix this
             message = "Device returned code: " \
-                      + self.res_code_to_str(i_rx_buffer[1]) + \
+                      + ResCodes.code_to_string(i_rx_buffer[1]) + \
                       " This should not happen. It is seems that there is" \
                       " some problem when transmitting or receiving data."
             logger.critical("[get_metadata_from_device]"
@@ -626,15 +650,15 @@ class Bridge(object):
             raise BridgeError(message)
 
         # Else all seems to be OK -> fill metadata structure
-        rx_metadata = Bridge.BRIDGE_METADATA()
+        rx_metadata = BridgeMetadata()
 
         # Metadata begin at index 2 (3rd byte)
         i_index = 2
 
         # Load MAX CMD ID
-        rx_metadata.MAX_CMD_ID = (i_rx_buffer[i_index]) << 8
+        rx_metadata.max_cmd_id = (i_rx_buffer[i_index]) << 8
         i_index = i_index + 1
-        rx_metadata.MAX_CMD_ID = rx_metadata.MAX_CMD_ID + i_rx_buffer[i_index]
+        rx_metadata.max_cmd_id = rx_metadata.max_cmd_id + i_rx_buffer[i_index]
         i_index = i_index + 1
 
         # Load serial number
@@ -645,16 +669,16 @@ class Bridge(object):
         rx_metadata.descriptor = ""
 
         # Load descriptor
-        while (i_rx_buffer[i_index] != 0x00):
+        while i_rx_buffer[i_index] != 0x00:
             # Add character to descriptor - this is python version dependent
-            if (sys.version_info[0] == 2):
+            if sys.version_info[0] == 2:
                 rx_metadata.descriptor = rx_metadata.descriptor + \
                                          str(unichr(i_rx_buffer[i_index]))
-            elif (sys.version_info[0] == 3):
+            elif sys.version_info[0] == 3:
                 rx_metadata.descriptor = rx_metadata.descriptor + \
                                          str(chr(i_rx_buffer[i_index]))
             else:
-                raise ("Unsupported python version")
+                raise BridgeError("Unsupported python version")
 
             # Increase index
             i_index = i_index + 1
@@ -663,15 +687,16 @@ class Bridge(object):
         return rx_metadata
 
     # Try to get setting (one) from device
-    def get_setting_from_device(self, i_Device_ID, i_CMD_ID):
+    def get_setting_from_device(self, i_device_id, i_cmd_id):
+        from .structs import SettingStruct
 
         # Check if Device ID is valid
-        if (i_Device_ID > self.i_num_of_devices):
+        if i_device_id > self.i_num_of_devices:
             message = " Invalid Device ID. "
-            if (self.i_num_of_devices < 0):
-                message = message + "It looks that bridge was not" \
-                                    " initialized. Please call function Uniprot_init() and" + \
-                          " check all exceptions"
+            if self.i_num_of_devices < 0:
+                message = message + "It looks that bridge was not " \
+                                    "initialized. Please call function" \
+                                    " Uniprot_init() and check all exceptions"
             else:
                 # It look that bridge was initialized, but Device ID is invalid
                 message = message + "Maximum Device ID is " + \
@@ -681,45 +706,45 @@ class Bridge(object):
 
             raise BridgeError(message)
 
-        if (i_Device_ID < 0):
+        if i_device_id < 0:
             logger.warn("[get_setting_from_device]"
                         "Invalid i_Device_ID. Can not be lower than 0")
-            raise BridgeError("Invalid i_Device_ID. Can not be"
-                                        " lower than 0")
+            raise BridgeError("Invalid i_Device_ID. Can not be lower than 0")
 
         # Check i_CMD_ID
-        if ((i_CMD_ID > self.device_metadata[i_Device_ID].MAX_CMD_ID) or \
-                (i_CMD_ID < 0)):
+        if ((i_cmd_id > self.device_metadata[i_device_id].max_cmd_id) or
+                (i_cmd_id < 0)):
             message = " Invalid CMD ID (input parameter: " + \
-                      str(i_CMD_ID) + ").\n Minimum CMD ID is 0. Maximum CMD" \
-                                      " ID for device " + str(
-                i_Device_ID) + " is " + \
-                      str(self.device_metadata[i_Device_ID].MAX_CMD_ID) + \
+                      str(i_cmd_id) + ").\n Minimum CMD ID is 0. Maximum CMD" \
+                                      " ID for device " + \
+                      str(i_device_id) + " is " + \
+                      str(self.device_metadata[i_device_id].max_cmd_id) + \
                       "\n"
 
             logger.warn("[get_setting_from_device]" + message)
             raise BridgeError(message)
-        if (i_CMD_ID > 0xFFFF):
+
+        if i_cmd_id > 0xFFFF:
             logger.warn("[get_setting_from_device]"
                         " i_CMD_ID is longer than 2B. Protocol send just"
                         " 2 LSB Bytes.\n")
-            i_CMD_ID = i_CMD_ID & 0xFFFF
+            i_cmd_id = i_cmd_id & 0xFFFF
 
         # Fill TX buffer by zeros
         i_tx_buffer = [0x00] * 4
         # Device ID
-        i_tx_buffer[0] = i_Device_ID
+        i_tx_buffer[0] = i_device_id
         # Bridge command (request ID)
         i_tx_buffer[1] = Bridge.STATE_REQUEST_GET_SETTING
         # CMD ID - must be split into two Bytes
-        i_tx_buffer[2] = (i_CMD_ID >> 8)
-        i_tx_buffer[3] = (i_CMD_ID) & 0xFF
+        i_tx_buffer[2] = i_cmd_id >> 8
+        i_tx_buffer[3] = i_cmd_id & 0xFF
 
         # Configure TX packet
-        Uniprot_config_TX_packet(4)
+        self._uniprot.config_tx_packet(4)
 
         # Configure RX packet
-        Uniprot_config_RX_packet(Bridge.MAX_RX_BUFFER_BYTES)
+        self._uniprot.config_rx_packet(Bridge.MAX_RX_BUFFER_BYTES)
 
         try:
             i_rx_buffer = self.send_request_get_data(i_tx_buffer)
@@ -744,35 +769,36 @@ class Bridge(object):
             raise BridgeResetFail(message)
 
         # Test if received DID is same
-        if (i_rx_buffer[0] != i_Device_ID):
+        if i_rx_buffer[0] != i_device_id:
             # This should not happen.
             message = " Got different Device ID (" + str(i_rx_buffer[0]) + \
                       "), but expected " + str(
-                i_Device_ID) + " . This is failure of" \
+                i_device_id) + " . This is failure of" \
                                "communication protocol.\n"
             logger.error("[get_setting_from_device]"
                          + message)
             raise BridgeError(message)
 
         # Check return code - should be 0, else there is bug in protocol
-        if (i_rx_buffer[1] != 0):
+        if i_rx_buffer[1] != 0:
             # This never happen. Only one thing that may fail is wrong Device
             # ID, but this is checked before request is send. It can fail only
             # when whole protocol fail -> developer should fix this
             message = " Device returned code: " \
-                      + self.res_code_to_str(i_rx_buffer[1]) + \
+                      + ResCodes.code_to_string(i_rx_buffer[1]) + \
                       ". Please refer to source code what error code means." \
-                      " However this should not happen. It is seems that there" \
-                      " is some problem when transmitting or receiving data."
+                      " However this should not happen. It is seems that" \
+                      " there is some problem when transmitting or receiving" \
+                      " data."
             logger.critical("[get_setting_from_device]" + message)
             raise BridgeError(message)
 
         # Check CMD ID
-        if (((i_rx_buffer[2] << 8) + i_rx_buffer[3]) != i_CMD_ID):
+        if ((i_rx_buffer[2] << 8) + i_rx_buffer[3]) != i_cmd_id:
             message = " Device returned different CMD ID (" + \
                       str((i_rx_buffer[2] << 8) + i_rx_buffer[3]) + \
                       "), but expected " + \
-                      str(i_CMD_ID) + ". This means failure on protocol layer."
+                      str(i_cmd_id) + ". This means failure on protocol layer."
             logger.critical("[get_setting_from_device]" + message)
             raise BridgeError(message)
 
@@ -791,30 +817,32 @@ class Bridge(object):
         # IN MIN
         rx_config.in_min = (i_rx_buffer[i_index_rx_buffer] << 24)
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.in_min = rx_config.in_min + \
-                           (i_rx_buffer[i_index_rx_buffer] << 16)
+        rx_config.in_min = (rx_config.in_min +
+                            (i_rx_buffer[i_index_rx_buffer] << 16))
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.in_min = rx_config.in_min + \
-                           (i_rx_buffer[i_index_rx_buffer] << 8)
+        rx_config.in_min = (rx_config.in_min +
+                            (i_rx_buffer[i_index_rx_buffer] << 8))
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.in_min = rx_config.in_min + \
-                           (i_rx_buffer[i_index_rx_buffer])
+        rx_config.in_min = (rx_config.in_min +
+                            (i_rx_buffer[i_index_rx_buffer]))
         i_index_rx_buffer = i_index_rx_buffer + 1
+
         # According to type, retype variable
         rx_config.in_min = self.retype(rx_config.in_min, rx_config.in_type)
 
         # IN MAX
         rx_config.in_max = (i_rx_buffer[i_index_rx_buffer] << 24)
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.in_max = rx_config.in_max + \
-                           (i_rx_buffer[i_index_rx_buffer] << 16)
+        rx_config.in_max = (rx_config.in_max +
+                            (i_rx_buffer[i_index_rx_buffer] << 16))
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.in_max = rx_config.in_max + \
-                           (i_rx_buffer[i_index_rx_buffer] << 8)
+        rx_config.in_max = (rx_config.in_max +
+                            (i_rx_buffer[i_index_rx_buffer] << 8))
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.in_max = rx_config.in_max + \
-                           (i_rx_buffer[i_index_rx_buffer])
+        rx_config.in_max = (rx_config.in_max +
+                            (i_rx_buffer[i_index_rx_buffer]))
         i_index_rx_buffer = i_index_rx_buffer + 1
+
         # According to type, retype variable
         rx_config.in_max = self.retype(rx_config.in_max, rx_config.in_type)
 
@@ -825,29 +853,30 @@ class Bridge(object):
         # OUT MIN
         rx_config.out_min = (i_rx_buffer[i_index_rx_buffer] << 24)
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.out_min = rx_config.out_min + \
-                            (i_rx_buffer[i_index_rx_buffer] << 16)
+        rx_config.out_min = (rx_config.out_min +
+                             (i_rx_buffer[i_index_rx_buffer] << 16))
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.out_min = rx_config.out_min + \
-                            (i_rx_buffer[i_index_rx_buffer] << 8)
+        rx_config.out_min = (rx_config.out_min +
+                             (i_rx_buffer[i_index_rx_buffer] << 8))
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.out_min = rx_config.out_min + \
-                            (i_rx_buffer[i_index_rx_buffer])
+        rx_config.out_min = (rx_config.out_min +
+                             (i_rx_buffer[i_index_rx_buffer]))
         i_index_rx_buffer = i_index_rx_buffer + 1
+
         # According to type, retype variable
         rx_config.out_min = self.retype(rx_config.out_min, rx_config.out_type)
 
         # OUT MAX
         rx_config.out_max = (i_rx_buffer[i_index_rx_buffer] << 24)
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.out_max = rx_config.out_max + \
-                            (i_rx_buffer[i_index_rx_buffer] << 16)
+        rx_config.out_max = (rx_config.out_max +
+                             (i_rx_buffer[i_index_rx_buffer] << 16))
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.out_max = rx_config.out_max + \
-                            (i_rx_buffer[i_index_rx_buffer] << 8)
+        rx_config.out_max = (rx_config.out_max +
+                             (i_rx_buffer[i_index_rx_buffer] << 8))
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.out_max = rx_config.out_max + \
-                            i_rx_buffer[i_index_rx_buffer]
+        rx_config.out_max = (rx_config.out_max +
+                             i_rx_buffer[i_index_rx_buffer])
         i_index_rx_buffer = i_index_rx_buffer + 1
         # According to type, retype variable
         rx_config.out_max = self.retype(rx_config.out_max, rx_config.out_type)
@@ -855,61 +884,68 @@ class Bridge(object):
         # OUT VALUE
         rx_config.out_value = (i_rx_buffer[i_index_rx_buffer] << 24)
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.out_value = rx_config.out_value + \
-                              (i_rx_buffer[i_index_rx_buffer] << 16)
+        rx_config.out_value = (rx_config.out_value +
+                               (i_rx_buffer[i_index_rx_buffer] << 16))
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.out_value = rx_config.out_value + \
-                              (i_rx_buffer[i_index_rx_buffer] << 8)
+        rx_config.out_value = (rx_config.out_value +
+                               (i_rx_buffer[i_index_rx_buffer] << 8))
         i_index_rx_buffer = i_index_rx_buffer + 1
-        rx_config.out_value = rx_config.out_value + \
-                              i_rx_buffer[i_index_rx_buffer]
+        rx_config.out_value = (rx_config.out_value +
+                               i_rx_buffer[i_index_rx_buffer])
         i_index_rx_buffer = i_index_rx_buffer + 1
         # According to type, retype variable
         rx_config.out_value = self.retype(rx_config.out_value,
                                           rx_config.out_type)
 
         # Get name
-        while (i_rx_buffer[i_index_rx_buffer] != 0x00):
+        while i_rx_buffer[i_index_rx_buffer] != 0x00:
             # This is python version depend (unichr vs chr)
-            if (sys.version_info[0] == 2):
+            if sys.version_info[0] == 2:
                 rx_config.name = rx_config.name + \
                                  str(unichr(i_rx_buffer[i_index_rx_buffer]))
-            elif (sys.version_info[0] == 3):
+
+            elif sys.version_info[0] == 3:
                 rx_config.name = rx_config.name + \
                                  str(chr(i_rx_buffer[i_index_rx_buffer]))
             else:
-                raise ("Unsupported python version")
+                raise BridgeError("Unsupported python version")
             i_index_rx_buffer = i_index_rx_buffer + 1
 
         # move to next character (add 1)
         i_index_rx_buffer = i_index_rx_buffer + 1
 
         # And get descriptor - do not know length
-        while (i_rx_buffer[i_index_rx_buffer] != 0x00):
+        while i_rx_buffer[i_index_rx_buffer] != 0x00:
             # Add character to string
-            if (sys.version_info[0] == 2):
+            if sys.version_info[0] == 2:
                 rx_config.descriptor = rx_config.descriptor + \
                                        str(unichr(
                                            i_rx_buffer[i_index_rx_buffer]))
-            elif (sys.version_info[0] == 3):
+            elif sys.version_info[0] == 3:
                 rx_config.descriptor = rx_config.descriptor + \
                                        str(chr(i_rx_buffer[i_index_rx_buffer]))
             else:
-                raise ("Unsupported python version")
+                raise BridgeError("Unsupported python version")
             i_index_rx_buffer = i_index_rx_buffer + 1
 
         return rx_config
 
-    # Try to set setting and if success try to read and update actual value
-    # using get setting
-    def set_setting_to_device(self, i_Device_ID, i_CMD_ID, i_value=0):
+    def set_setting_to_device(self, i_device_id, i_cmd_id, i_value=0):
+        """ Try to set setting and if success try to read and update actual
+            value using get setting.
+
+        :param i_device_id:
+        :param i_cmd_id:
+        :param i_value:
+        :return:
+        """
         # Check Device ID
-        if (i_Device_ID > self.i_num_of_devices):
+        if i_device_id > self.i_num_of_devices:
             message = " Invalid Device ID. "
-            if (self.i_num_of_devices < 0):
+            if self.i_num_of_devices < 0:
                 message = message + "It looks that bridge was not" \
-                                    " initialized. Please call function Uniprot_init() and" + \
-                          " check all exceptions"
+                                    " initialized. Please call function" \
+                                    " Uniprot_init() and check all exceptions"
             else:
                 # It looks that bridge was initialized, but device ID is invalid
                 message = message + "Maximum Device ID is " + \
@@ -918,94 +954,102 @@ class Bridge(object):
 
             raise BridgeError(message)
 
-        if (i_Device_ID < 0):
+        if i_device_id < 0:
             message = "Invalid i_Device_ID. Can not be lower than 0"
             logger.warn("[set_setting_from_device]"
                         + message)
             raise BridgeError(message)
 
         # Now check CMD ID
-        if ((i_CMD_ID > self.s_metadata[i_Device_ID].MAX_CMD_ID) or
-                (i_CMD_ID < 0)):
+        if ((i_cmd_id > self.s_metadata[i_device_id].max_cmd_id) or
+                (i_cmd_id < 0)):
             message = "Invalid CMD ID. Can not be lower than 0 and higher" \
-                      " then " + str(self.s_metadata[i_Device_ID].MAX_CMD_ID) \
-                      + " for device " + str(i_Device_ID) + " .\n"
+                      " then " + str(self.s_metadata[i_device_id].max_cmd_id) \
+                      + " for device " + str(i_device_id) + " .\n"
             logger.warn("[set_setting_from_device]"
                         + message)
             raise BridgeError(message)
-        if (i_CMD_ID > 0xFFFF):
+        if i_cmd_id > 0xFFFF:
             logger.warn("[set_setting_to_device]"
                         " i_CMD_ID is longer than 2B. Protocol send just"
                         " 2 LSB Bytes.\n")
-            i_CMD_ID = i_CMD_ID & 0xFFFF
+            i_cmd_id = i_cmd_id & 0xFFFF
 
         # According to data type convert data
-        data_type = self.s_settings_in_RAM[i_Device_ID][i_CMD_ID].in_type
+        data_type = self.s_settings_in_RAM[i_device_id][i_cmd_id].in_type
 
         # GROUP TYPE
-        if (data_type == self.DATA_TYPES.group_type):
-            # Well, this should not happen. To group we should not send any data.
+        if data_type == DataTypes.GROUP:
+            # Well, this should not happen. To group we should not send
+            #  any data.
             # OK, so for now just we will ignore value and just send warning to
             # log, because it is not big deal. Maybe in new version will be
             # device capable receive group messages.
             logger.warn("[set_setting_to_device] You are trying send data to"
-                        "data type group!\n It is not forbidden, however in this"
+                        "data type group!\n It is not forbidden, "
+                        "however in this"
                         "version it is not recommended!\n Please double check"
                         "firmware version. Or maybe it is just bug.")
 
         # VOID TYPE
         # Better than mess transmit zeros
-        elif (data_type == self.DATA_TYPES.void_type):
+        elif data_type == DataTypes.VOID:
             i_value = 0
 
         # CHAR TYPE
-        elif (data_type == self.DATA_TYPES.char_type):
+        elif data_type == DataTypes.CHAR:
             # If char type recalculate to number - this is pretty easy
+            # TODO: Check this, I think it's not going to work
             i_value = ord(i_value[0])
 
         # FLOAT TYPE
-        elif (data_type == self.DATA_TYPES.float_type):
+        elif data_type == DataTypes.FLOAT:
             i_value = struct.pack("f", i_value)
             i_value = bytearray(i_value)
-            i_value = (i_value[3] << 24) + (i_value[2] << 16) + (
-            i_value[1] << 8) + (i_value[0])
+            i_value = (i_value[3] << 24) + (i_value[2] << 16) + \
+                      (i_value[1] << 8) + (i_value[0])
 
         # UINT* TYPES
-        elif ((data_type == self.DATA_TYPES.uint_type) or
-                  (data_type == self.DATA_TYPES.uint8_type) or
-                  (data_type == self.DATA_TYPES.uint16_type) or
-                  (data_type == self.DATA_TYPES.uint32_type)):
+        elif data_type in (DataTypes.UINT,
+                           DataTypes.UINT8,
+                           DataTypes.UINT16,
+                           DataTypes.UINT32):
+
             # Check sign
-            if (i_value < 0):
+            if i_value < 0:
                 # Well, value should be unsigned. In the end it really does not
-                # matter, but it could be a mistake somewhere. At least log warning
+                # matter, but it could be a mistake somewhere.
+                # At least log warning
                 logger.warn("[set_setting_to_device] Value is negative, but it "
                             "should be only positive (because data type is"
-                            " unsinged). Value will be transmitted, but in device"
-                            " will be used as unsigned!\n")
+                            " unsinged). Value will be transmitted, "
+                            "but in device will be used as unsigned!\n")
+
         # INT and UINT TYPES
         else:
             msg_wide_variable = "[set_setting_to_device] Value is wider" + \
                                 " than maximum. Application send only low "
 
             # Note that int and uint should be 32 bit long.
-            if ((data_type == self.DATA_TYPES.uint32_type) or
-                    (data_type == self.DATA_TYPES.int32_type) or
-                    (data_type == self.DATA_TYPES.uint_type) or
-                    (data_type == self.DATA_TYPES.int_type)):
-                if (i_value > 0xFFFFFFFF):
+            if data_type in (DataTypes.UINT32,
+                             DataTypes.INT32,
+                             DataTypes.UINT,
+                             DataTypes.INT):
+
+                if i_value > 0xFFFFFFFF:
                     i_value = i_value & 0xFFFFFFFF
                     logger.warn(msg_wide_variable + "4 Bytes")
+
             # Check number size (16b)
-            elif ((data_type == self.DATA_TYPES.uint16_type) or
-                      (data_type == self.DATA_TYPES.int16_type)):
-                if (i_value > 0xFFFF):
+            elif data_type in (DataTypes.UINT16, DataTypes.INT16):
+                if i_value > 0xFFFF:
                     i_value = i_value & 0xFFFF
                     logger.warn(msg_wide_variable + "2 Bytes")
+
             # Check number size (8b)
-            elif ((data_type == self.DATA_TYPES.uint8_type) or
-                      (data_type == self.DATA_TYPES.int8_type)):
-                if (i_value > 0xFF):
+            elif data_type in (DataTypes.UINT8, DataTypes.INT8):
+
+                if i_value > 0xFF:
                     i_value = i_value & 0xFF
                     logger.warn(msg_wide_variable + "1 Byte")
             else:
@@ -1022,12 +1066,12 @@ class Bridge(object):
         # Fill TX buffer by zeros
         i_tx_buffer = [0x00] * 8
         # Device ID
-        i_tx_buffer[0] = i_Device_ID
+        i_tx_buffer[0] = i_device_id
         # Bridge command (request ID)
         i_tx_buffer[1] = Bridge.STATE_REQUEST_SET_SETTING
         # CMD ID - must be split into two Bytes
-        i_tx_buffer[2] = (i_CMD_ID >> 8)
-        i_tx_buffer[3] = (i_CMD_ID) & 0xFF
+        i_tx_buffer[2] = (i_cmd_id >> 8)
+        i_tx_buffer[3] = i_cmd_id & 0xFF
         # i_value - 4B - split
         i_tx_buffer[4] = (i_value >> 24) & 0xFF
         i_tx_buffer[5] = (i_value >> 16) & 0xFF
@@ -1035,10 +1079,10 @@ class Bridge(object):
         i_tx_buffer[7] = i_value & 0xFF
 
         # Configure TX packet
-        Uniprot_config_TX_packet(8)
+        self._uniprot.config_tx_packet(8)
 
         # Configure RX packet
-        Uniprot_config_RX_packet(Bridge.MAX_RX_BUFFER_BYTES)
+        self._uniprot.config_rx_packet(Bridge.MAX_RX_BUFFER_BYTES)
 
         try:
             i_rx_buffer = self.send_request_get_data(i_tx_buffer)
@@ -1063,11 +1107,11 @@ class Bridge(object):
             raise BridgeResetFail(message)
 
         # Test if received DID is same
-        if (i_rx_buffer[0] != i_Device_ID):
+        if i_rx_buffer[0] != i_device_id:
             # This should not happen.
             message = " Got different Device ID (" + str(i_rx_buffer[0]) + \
                       "), but expected " + str(
-                i_Device_ID) + " . This is failure of" \
+                i_device_id) + " . This is failure of" \
                                "communication protocol.\n"
             logger.error("[set_setting_to_device]"
                          + message)
@@ -1075,22 +1119,22 @@ class Bridge(object):
 
         # Check return code - should be 0, however it cant't
         if i_rx_buffer[1] != 0:
-            dev_code = self.res_code_to_str(i_rx_buffer[1])
+            dev_code = ResCodes.code_to_string(i_rx_buffer[1])
             message = (" Device returned code: {0}\n"
                        "  Driver: {1}  (Device ID: {2})\n"
                        "  CMD: {3}  (CMD ID: {4})\n".format(
-                dev_code, self.s_metadata[i_Device_ID].descriptor,
-                i_Device_ID,
-                self.s_settings_in_RAM[i_Device_ID][i_CMD_ID].name,
-                i_CMD_ID))
+                        dev_code, self.s_metadata[i_device_id].descriptor,
+                        i_device_id,
+                        self.s_settings_in_RAM[i_device_id][i_cmd_id].name,
+                        i_cmd_id))
             logger.warning("[set_setting_to_device]" + message)
             raise BridgeError(message)
 
         # Setting was set, but program should update value -> call
         # get_setting_from_device and update data in RAM
         try:
-            self.s_settings_in_RAM[i_Device_ID][i_CMD_ID] = \
-                self.get_setting_from_device(i_Device_ID, i_CMD_ID)
+            self.s_settings_in_RAM[i_device_id][i_cmd_id] = \
+                self.get_setting_from_device(i_device_id, i_cmd_id)
         except BridgeDeviceNotFound as e:
             message = "[get_setting_from_device]" + str(e)
             logger.error("[set_setting_to_device]" + message)
@@ -1112,7 +1156,7 @@ class Bridge(object):
             raise BridgeResetFail(message)
 
         # If no exception occurred -> return result code as text
-        return self.res_code_to_str(i_rx_buffer[1])
+        return ResCodes.code_to_string(i_rx_buffer[1])
 
     @property
     def device_metadata(self):

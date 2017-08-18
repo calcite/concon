@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import yaml
-# from ConfigParser import *
-# For detection python version (2 or 3)
 from usb_driver import UsbDriver
 
 
@@ -10,20 +7,19 @@ class SupportedDevices(list):
     """ Manage supported devices (VIDs, PIDs).
     """
 
-    def __init__(self, config_file=None):
+    def __init__(self, supported_vids=[], ignored_pids=[]):
         list.__init__(self)
-        self.vid_list = []
-        self.pid_ignore_list = []
-        if config_file:
-            self.load_from_config(config_file)
+        self.vid_list = supported_vids
+        self.pid_ignore_list = ignored_pids
 
-    def load_from_config(self, config_file):
-        """ Load supported devices IDs (VIDs, PIDs) from a configuration file.
-        """
-        with file(config_file) as cf:
-            config = yaml.load(cf)
-            self.vid_list = config['devices']['supported-vids']
-            self.pid_ignore_list = config['devices']['ignored-pids']
+    # @classmethod
+    # def load_from_config(self, config_file):
+    #     """ Load supported devices IDs (VIDs, PIDs) from a configuration file.
+    #     """
+    #     with file(config_file) as cf:
+    #         config = yaml.load(cf)
+    #         self.vid_list = config['devices']['supported_vids']
+    #         self.pid_ignore_list = config['devices']['ignored_pids']
 
     def get_connected_devices(self):
         """ Enlist all connected supported devices."""

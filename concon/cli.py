@@ -6,9 +6,11 @@ import click
 import pkg_resources
 import logging
 import logging.config
+import yaml
 from .supported_devices import SupportedDevices
 from .usb_driver import UsbDriver
 from .bridge_config_parser import BridgeConfigParser
+from . import ConConError
 
 # DEFAULT_CONFIG = 'config/config.json'
 DEFAULT_CONFIG = 'config/config.yml'
@@ -18,6 +20,13 @@ DEFAULT_LOG_CONFIG = 'config/logging_global.cfg'
 # logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('UCA console')
 
+
+def report_errors(err):
+    click.secho("\n <-------------------- Errors --------------------->",
+                fg='red')
+    click.echo(err, err=True)
+
+
 @click.group()
 @click.version_option()
 @click.option('--config', default=None,
@@ -26,25 +35,31 @@ logger = logging.getLogger('UCA console')
               help="Selected device to configure.")
 @click.pass_context
 def main(ctx, config, device, args=None):
-    """Tool for configuration of Devices implementing "Uniprot" communication 
+    """Tool for configuration of devices implementing "Uniprot" communication
     layer over USB (HID profile).
     """
     ctx.obj = {}
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.ERROR)
     # TODO: Config doesn't work...
     # logging.config.fileConfig(
     #     pkg_resources.resource_filename('concon', DEFAULT_LOG_CONFIG)
     # )
 
     try:
+        # TODO: Add cascaded configuration
         if config is None:
             config = pkg_resources.resource_filename('concon', DEFAULT_CONFIG)
-        devices = SupportedDevices(config)
-        usb = UsbDriver.init_from_config(config)
+
+        with file(config) as cf:
+            conf = yaml.load(cf)
     except OSError as e:
         msg = " Invalid file path or configuration file: {0}!\n".format(str(e))
-        logger.error("[SupportedDevices]" + msg)
+        report_errors(msg)
+        raise click.Abort()
 
+    devices = SupportedDevices(**conf['devices'])
+    usb = UsbDriver(timeout=conf['usb']['timeout'])
+    ctx.obj['config'] = conf
     dev_list = devices.get_connected_devices()
 
     # Now try to "ping" every supported device. If device found, add it to list
@@ -60,43 +75,68 @@ def main(ctx, config, device, args=None):
         msg = "No supported device found! Please make sure, that device is\n" + \
               " properly connected. Also check if device is in supported\n" + \
               " devices list.\n"
-        logger.error(msg)
+        # logger.error(msg)
+        report_errors(msg)
         raise click.Abort()
 
-    found_devices = sorted(found_devices, key=lambda device: device.uid)
+    found_devices = sorted(found_devices, key=lambda device: device.name)
     ctx.obj['found_devices'] = found_devices
 
     if len(found_devices) == 1:
         ctx.obj['device'] = found_devices[0]
     else:
-        ctx.obj['device'] = None
+        if device is None:
+            # Show device selection prompt
+            click.secho("More than one configurable devices detected.\n"
+                        "Choose one from below and run again with"
+                        " -d [0 ~ {0}] option.".format(len(found_devices)-1),
+                        fg='yellow')
+            ctx.invoke(device_list)
+            raise click.Abort()
 
-    # VID = found_devices[user_choice].vid
-    # PID = found_devices[user_choice].pid
-    # # End of Else len(found_devices) != 1
-    #
-    # # Test if there is only one device connected. If not, then user must decide
-    # # which want program
-    # if (len(found_devices) != 1):
-    #     logger.info("Found {0} devices\n".format(len(found_devices)))
-    #
-    #     # Test if we just want configure first device (useful for quick debug)
-    #     if (use_first_dev == 1):
-    #         logger.info(
-    #             "Parameter use first device set. Following device will be"
-    #             "configured:\n{0}\n".format(found_devices[0]))
-    #         VID = found_devices[0].vid
-    #         PID = found_devices[0].pid
-    #     else:
-    #         # User must select
-    #         print("Please select one device:")
+        try:
+            ctx.obj['device'] = found_devices[int(device)]
+        except (IndexError, ValueError):
+            report_errors('Invalid device number "{0}". '
+                          'Choose between 0~{1}'.format(device,
+                                                        len(found_devices)-1))
+            ctx.invoke(device_list)
+            raise click.Abort()
+
 
 
 @main.command()
 @click.argument("file_name")
-def write(file_name):
+@click.pass_context
+def write(ctx, file_name):
     """ Write a configuration file to a given device."""
-    click.echo("Writing a filename: {0}".format(file_name))
+
+    device = ctx.obj['device']
+    label = "Connecting to {0}".format(device.name)
+    # Try to initialize bridge
+    try:
+        with click.progressbar(length=10, show_eta=False, label=label) as bar:
+            cfg_pars = BridgeConfigParser(device.vid, device.pid,
+                                          ctx.obj['config']['usb']['timeout'],
+                                          progress_bar=bar)
+
+        click.echo("Reading configuration from: {0}".format(file_name))
+        cfg_pars.read_setting_from_file(file_name,
+                                        ignore_errors=False,
+                                        try_fix_errors=True)
+
+        # And send changes to device
+        label = "Writing configuration to {0}".format(device.name)
+        with click.progressbar(length=10, show_eta=False, label=label) as bar:
+            cfg_pars.write_setting_to_device(progress_bar=bar)
+
+        click.secho("Configuration successfully downloaded "
+                    "to the device {0}".format(device.name), fg='green')
+    except ConConError as ce:
+        report_errors(ce)
+    finally:
+        # If something fails -> try at least close device properly
+        cfg_pars.close_device()
 
 
 @main.command()
@@ -104,18 +144,24 @@ def write(file_name):
 @click.pass_context
 def read(ctx, file_name):
     """ Read given device configuration and store it in a configuration file."""
-    click.echo("Reading to a filename: {0}".format(file_name))
-    # Try to initialize bridge
+
     device = ctx.obj['device']
+    label = "Reading configuration from {0}".format(device.name)
 
-    cfgPars = BridgeConfigParser(device.vid, device.pid)
-
+    # Try to initialize bridge
     try:
-        cfgPars.write_setting_to_cfg_file("test.cfg")
-    except Exception as e:
-        # If something fails -> try at least close device properly
-        cfgPars.close_device()
-        raise Exception(e)
+        with click.progressbar(length=10, show_eta=False, label=label) as bar:
+            cfg_pars = BridgeConfigParser(device.vid, device.pid,
+                                          ctx.obj['config']['usb']['timeout'],
+                                          progress_bar=bar)
+
+        cfg_pars.write_setting_to_cfg_file("test.cfg")
+        click.secho("Device configuration written to file {0}".format(
+            file_name), fg='green')
+    except ConConError as ce:
+        report_errors(ce)
+    finally:
+        cfg_pars.close_device()
 
 
 @main.command(name="list")
@@ -124,7 +170,7 @@ def device_list(ctx):
     """ List all available Uniprot devices."""
     found_devices = ctx.obj['found_devices']
     for i in range(len(found_devices)):
-        click.echo(" Dev# {0} Name: {1}".format(
+        click.echo(" Dev# {0} <{1}>".format(
             i, found_devices[i].name))
 
 if __name__ == "__main__":

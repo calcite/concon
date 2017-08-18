@@ -1,10 +1,16 @@
 """
 .. module:: concon.structs
     :platform: Unix, Windows
-    :synopsis: Classes for description configuration/setting structures. 
+    :synopsis: Classes for description configuration/setting structures.
 .. moduleauthor:: Martin Stejskal, Josef Nevrly
 
 """
+
+from .HW_bridge_uniprot import DataTypes
+from .descriptor_parser import process_descriptor_for_configfile
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # Structure for get/set setting functions
@@ -28,9 +34,9 @@ class SettingStruct(object):
                "OUT VALUE: {8}\n" \
             .format(self.name,
                     self.descriptor,
-                    Bridge.data_type_to_str(self.in_type),
+                    DataTypes.data_type_to_str(self.in_type),
                     self.in_min, self.in_max,
-                    Bridge.data_type_to_str(self.out_type),
+                    DataTypes.data_type_to_str(self.out_type),
                     self.out_min, self.out_max,
                     self.out_value)
 
@@ -65,22 +71,22 @@ class SettingStructChangeParam(SettingStruct):
 
         # If there is some descriptor -> add it!
         if self.descriptor != "":
-            comment = descriptor_parser.process_descriptor_for_configfile(
+            comment = process_descriptor_for_configfile(
                 self.descriptor)
             config.add_comment(section, comment)
 
         # Test for input and output type is void
         if ((self.in_type == self.out_type) and
-                (self.in_type == Bridge.DATA_TYPES.void_type)):
+                (self.in_type == DataTypes.VOID)):
             comment = "Set call_function to non zero if you want call" \
                       " this function"
             config.add_comment(section, comment)
             config.set(section, "call_function", "0")
 
         # Else test only for input void (there is non-void output)
-        elif self.in_type == Bridge.DATA_TYPES.void_type:
+        elif self.in_type == DataTypes.VOID:
             comment = "OUT TYPE: {0} < {1} : {2} > | value: {3}".format(
-                Bridge.data_type_to_str(self.out_type),
+                DataTypes.data_type_to_str(self.out_type),
                 self.out_min,
                 self.out_max,
                 self.out_value)
@@ -92,9 +98,9 @@ class SettingStructChangeParam(SettingStruct):
 
         # Test if just output type is void - again different format and
         # comments
-        elif self.out_type == Bridge.DATA_TYPES.void_type:
+        elif self.out_type == DataTypes.VOID:
             comment = "IN TYPE: {0} < {1} : {2} >".format(
-                Bridge.data_type_to_str(self.in_type),
+                DataTypes.data_type_to_str(self.in_type),
                 self.in_min,
                 self.in_max)
             config.add_comment(section, comment)
@@ -102,20 +108,20 @@ class SettingStructChangeParam(SettingStruct):
 
         # Now compare IN TYPE and OUT TYPE and if they have same range
         elif ((self.in_type == self.out_type) and
-                  (self.in_min == self.out_min) and
-                  (self.in_max == self.out_max)):
+              (self.in_min == self.out_min) and
+              (self.in_max == self.out_max)):
             # If equal - just add comment with data type, min, max and
             # actual value
 
             # Test if data type is float. Then round it
-            if self.in_type == Bridge.DATA_TYPES.float_type:
+            if self.in_type == DataTypes.FLOAT:
                 self.in_min = format(round(self.in_min, self.FLOAT_PRECISION))
                 self.in_max = format(round(self.in_max, self.FLOAT_PRECISION))
                 self.out_value = \
                     format(round(self.out_value, self.FLOAT_PRECISION))
 
             comment = "TYPE: {0} < {1} : {2} > | current value: {3}".format(
-                Bridge.data_type_to_str(self.in_type),
+                DataTypes.data_type_to_str(self.in_type),
                 self.in_min,
                 self.in_max,
                 self.out_value)
@@ -127,7 +133,7 @@ class SettingStructChangeParam(SettingStruct):
         # Else just write in and out type, out value
         else:
             # Test if data type is float. Then round it
-            if self.in_type == Bridge.DATA_TYPES.float_type:
+            if self.in_type == DataTypes.FLOAT:
                 self.in_min = format(round(self.in_min, self.FLOAT_PRECISION))
                 self.in_max = format(round(self.in_max, self.FLOAT_PRECISION))
                 self.out_min = format(
@@ -138,12 +144,12 @@ class SettingStructChangeParam(SettingStruct):
                                               self.FLOAT_PRECISION))
 
             comment = "IN TYPE: {0} < {1} : {2} >".format(
-                Bridge.data_type_to_str(self.in_type),
+                DataTypes.data_type_to_str(self.in_type),
                 self.in_min,
                 self.in_max)
             config.add_comment(section, comment)
             comment = "OUT TYPE: {0} < {1} : {2} > | out value: {3}".format(
-                Bridge.data_type_to_str(self.out_type),
+                DataTypes.data_type_to_str(self.out_type),
                 self.out_min,
                 self.out_max,
                 self.out_value)
@@ -154,7 +160,7 @@ class SettingStructChangeParam(SettingStruct):
     def import_from_config(self, config, did, ignore_errors=False,
                            try_fix_errors=False):
         # Check for error input types
-        if self.in_type == Bridge.DATA_TYPES.group_type:
+        if self.in_type == DataTypes.GROUP:
             msg = " Invalid data type: group. Internal error\n"
             logger.error("[import_from_config]" + msg)
             raise Exception(msg)
@@ -166,7 +172,7 @@ class SettingStructChangeParam(SettingStruct):
         # variable name
 
         # Test if input type is void
-        if self.in_type == Bridge.DATA_TYPES.void_type:
+        if self.in_type == DataTypes.VOID:
             # Input and output types are void -> check if function should
             # be called
             value = config.get(section, "call_function")
@@ -181,7 +187,7 @@ class SettingStructChangeParam(SettingStruct):
 
         # Test if just output type is void - again different format and
         # comments
-        elif self.out_type == Bridge.DATA_TYPES.void_type:
+        elif self.out_type == DataTypes.VOID:
             # Output is void, so we can not know what value was last.
             # However if there were some change, then "value" should be
             # different than "not changed"
@@ -195,8 +201,8 @@ class SettingStructChangeParam(SettingStruct):
 
         # Test for same data types and values
         elif ((self.out_type == self.in_type) and
-                  (self.in_min == self.out_min) and
-                  (self.in_max == self.out_max)):
+              (self.in_min == self.out_min) and
+              (self.in_max == self.out_max)):
 
             value = config.get(section, "value")
             # Check if value is different according to data type
@@ -207,13 +213,12 @@ class SettingStructChangeParam(SettingStruct):
             except ValueError:
                 # If fail -> string -> check data IN TYPE with char (only
                 # correct option). If not char -> user fail -> error
-                if (self.in_type !=
-                        Bridge.DATA_TYPES.char_type):
+                if self.in_type != DataTypes.CHAR:
                     msg = " Incorrect user value <{0}> at option <{1}>" \
                           " Expected type {2}\n".format(
-                        value,
-                        self.name,
-                        Bridge.data_type_to_str(self.in_type))
+                            value,
+                            self.name,
+                            DataTypes.data_type_to_str(self.in_type))
                     logger.error("[import_from_config]" + msg)
 
                     if not ignore_errors:
@@ -237,7 +242,7 @@ class SettingStructChangeParam(SettingStruct):
                         # Throw exception and log problem
                         msg = " In option <{0}> expected only one " \
                               "character, but found string!".format(
-                            self.name)
+                                self.name)
                         logger.error("[import_from_config]" + msg)
                         raise Exception(msg)
 
@@ -268,12 +273,12 @@ class SettingStructChangeParam(SettingStruct):
         except ValueError:
             # When fail -> value is string
             # Check for char type -> else there is problem
-            if self.in_type != Bridge.DATA_TYPES.char_type:
+            if self.in_type != DataTypes.CHAR:
                 msg = " Incorrect user value <{0}> at option <{1}>. " \
                       "Expected type: {2}\n".format(
-                    value,
-                    self.name,
-                    Bridge.data_type_to_str(self.in_type))
+                        value,
+                        self.name,
+                        DataTypes.data_type_to_str(self.in_type))
                 logger.error("[import_from_config]" + msg)
 
                 # This problem can not be fixed. But we can ignore this
@@ -285,17 +290,17 @@ class SettingStructChangeParam(SettingStruct):
                     return
 
         # Retype (if needed) value according to input type
-        if ((self.in_type != Bridge.DATA_TYPES.float_type) and
-                (Bridge.DATA_TYPES.char_type != self.in_type)):
+        if ((self.in_type != DataTypes.FLOAT) and
+                (DataTypes.CHAR != self.in_type)):
             value = int(value)
 
         # Check boundaries
         if value < self.in_min:
             msg = " At option <{0}> is lower value than" \
                   " expected!\n Expected at least {1} but got {2}.\n".format(
-                self.name,
-                self.in_min,
-                value)
+                    self.name,
+                    self.in_min,
+                    value)
 
             # Check if we can fix errors
             if try_fix_errors:
@@ -316,9 +321,9 @@ class SettingStructChangeParam(SettingStruct):
         if value > self.in_max:
             msg = " At option <{0}> is higher value than" \
                   " expected!\n Expected at most {1} but got {2}.\n".format(
-                self.name,
-                self.in_max,
-                value)
+                    self.name,
+                    self.in_max,
+                    value)
 
             # Check if we can fix errors
             if try_fix_errors:
@@ -360,13 +365,13 @@ class GroupParam(SettingStructChangeParam):
         config.add_comment(section,
                            "TYPE: {0} < {1} : {2} > | current value: {3} |"
                            " Available choices:".format(
-                               Bridge.data_type_to_str(self.out_type),
+                               DataTypes.data_type_to_str(self.out_type),
                                self.out_min,
                                self.out_max,
                                self.out_value))
         for choice_param in self._choice_params:
             # Test if data type is void or not
-            if choice_param.out_type == Bridge.DATA_TYPES.void_type:
+            if choice_param.out_type == DataTypes.VOID:
 
                 # Test if descriptor is empty. If yes, then show at
                 # least name
@@ -473,4 +478,3 @@ class GroupParam(SettingStructChangeParam):
             self.out_value = value
 
             self.changed = True
-

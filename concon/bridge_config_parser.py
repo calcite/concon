@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+    .. module: concon.bridge_config_parser
+    .. synopsis: Implementation of the file configuration parser.
 
 """
 import re
@@ -8,6 +10,7 @@ from structs import SettingStructChangeParam, GroupParam
 
 from HW_bridge_uniprot import *
 
+# For detection python version (2 or 3)
 if sys.version_info[0] == 2:
     import ConfigParser as configparser
 elif sys.version_info[0] == 3:
@@ -15,32 +18,16 @@ elif sys.version_info[0] == 3:
 else:
     raise Exception("Unknown python version")
 
-##
-# @file
-# @brief Python script for configuration parser
-#
-# Created:  31.03.2014
-# Modified: 20.06.2014
-#
-# @author Martin Stejskal
 
-# For detection python version (2 or 3)
-
-##
-# @brief For logging events
-
-
-##
-# @brief Get logging variable
 logger = logging.getLogger('Bridge config parser')
 
 
 class BridgeConfigParser(object):
     MAX_RETRY_CNT = 3
 
-    def __init__(self, vid, pid):
-        self.VID = vid  # USB VendorID
-        self.PID = pid  # USB ProductID
+    def __init__(self, vid, pid, timeout, progress_bar=None):
+        self.vid = vid  # USB VendorID
+        self.pid = pid  # USB ProductID
         self._bridge = None
         self._s_cfg_settings = []
 
@@ -55,7 +42,8 @@ class BridgeConfigParser(object):
                 raise Exception(" Can not initialize Bridge")
 
             try:
-                self._bridge = Bridge(self.VID, self.PID)
+                self._bridge = Bridge(self.vid, self.pid, timeout,
+                                      progress_bar=progress_bar)
 
             except IOError as e:
                 logger.error("[__init__][Bridge]" + str(e))
@@ -84,7 +72,7 @@ class BridgeConfigParser(object):
             for setting in self._bridge.all_settings[did]:
 
                 # Test if group header found
-                if setting.in_type == Bridge.DATA_TYPES.group_type:
+                if setting.in_type == DataTypes.GROUP:
                     # Create key in dictionary (will be filled later)
                     tmpst = GroupParam(setting)
                     groups[tmpst.name] = tmpst
@@ -153,7 +141,7 @@ class BridgeConfigParser(object):
             config.add_comment(section, "Serial number: {0}".format(
                 self._bridge.device_metadata[DID].serial))
 
-            # Go thru command by command in device (DID)
+            # Go through command by command in device (DID)
             for setting in self._s_cfg_settings[DID]:
                 setting.export_to_config(config, DID)
 
@@ -187,7 +175,7 @@ class BridgeConfigParser(object):
         if not status:
             msg = " Configuration file not found!"
             logger.error("[read_setting_from_file][config.read]" + msg)
-            raise Exception(msg)
+            raise BridgeException(msg)
 
         logger.info("[read_setting_from_file] Configuration file opened\n")
 
@@ -212,9 +200,15 @@ class BridgeConfigParser(object):
     ##
     # @brief Read processed s_cfg_settings and if there are any changes, then
     # will be send to AVR
-    def write_setting_to_device(self):
+    def write_setting_to_device(self, progress_bar=None):
         # Go through all settings and check if "changed" flag is set
         num_of_dev = self._bridge.get_max_device_id()
+
+        if progress_bar:
+            total_length = 0
+            for did in range(num_of_dev + 1):
+                total_length += len(self._s_cfg_settings[did])
+            progress_bar.length = total_length
 
         for did in range(num_of_dev + 1):
 
@@ -223,7 +217,7 @@ class BridgeConfigParser(object):
                 if setting.changed:
 
                     # Test if actual setting is normal item or group header
-                    if setting.in_type == Bridge.DATA_TYPES.group_type:
+                    if setting.in_type == DataTypes.GROUP:
 
                         # Group changed -> use CMD ID. Any other value
                         # is not needed
@@ -243,6 +237,9 @@ class BridgeConfigParser(object):
                         msg = msg + "<{0}> was changed value to: {1}".format(
                             setting.name, setting.out_value)
                         logger.debug(msg)
+
+                if progress_bar:
+                    progress_bar.update(1)
 
         logger.info("[write_setting_to_device] Device configured\n")
 

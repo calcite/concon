@@ -7,6 +7,7 @@
 """
 import os
 import yaml
+from .. import ConConError
 
 if os.name == "posix":
     from .linux import *
@@ -16,7 +17,7 @@ else:
     raise Exception("Unsupported OS")
 
 
-class UsbDriverException(Exception):
+class UsbDriverException(ConConError):
     pass
 
 

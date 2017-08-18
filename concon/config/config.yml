@@ -1,6 +1,6 @@
 devices:
-    supported-vids: [5840, 1003, 1075]
-    ignored-pids: []
+    supported_vids: [5840, 1003, 1075]
+    ignored_pids: []
 
 usb:
     #Timeout [msec] of device's response
