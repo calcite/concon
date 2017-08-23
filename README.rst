@@ -129,7 +129,7 @@ which will be expanded to the same thing.
 
 Notes
 -----
-* Tested on Linux with python 2.7, 3.2, 3.3 and 3.4
+* Tested on Linux with Python 2.7, 3.2, 3.3 and 3.4
 * Tested on Windows XP and Windows 7 with Python 2.7 (but it should work on
    version 3.2, 3.3 and so on)
 * For more info run application with "-h" parameter
