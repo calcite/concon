@@ -27,8 +27,8 @@ Compatible devices
 
 Devices must fulfill following to communicate with ConCon:
 
- * USB interface with "uniprot" communication layer (data secure)
- * Device must support the ``generic driver`` (common way how to communicate
+* USB interface with "uniprot" communication layer (data secure)
+* Device must support the ``generic driver`` (common way how to communicate
     with any low level driver) and ``HW bridge uniprot`` (data from
     generic driver are send through uniprot)
 
@@ -44,13 +44,13 @@ Workflow
 
 The command-line tool is usually used in the following workflow:
 
- #. Download all device options and dynamically create configuration file::
+#. Download all device options and dynamically create configuration file::
 
     $ concon read config-file.cfg
 
 
- #. User modify configuration file
- #. Upload configuration back to device::
+#. User modify configuration file
+#. Upload configuration back to device::
 
     $ concon write config-file.cfg
 
@@ -110,18 +110,18 @@ This option is to save the length of strings which needs to be stored in the
 MCU's code for descriptors. Instead, one can write a Python
 expression which will be expanded to a string and processed.
 
-  Example::
+Example::
 
     {L}0:fsref/1; 1:fsref/1.5; 2:fsref/2; 3:fsref/2.5; 4:fsref/3;
     5:fsref/3.5; 6:fsref/4; 7:fsref/4.5; 8:fsref/5; 9:fsref/5.5; 10:fsref/6
 
 
-  This is may be way too long for MCU with limited code memory. Easier to use
+This is may be way too long for MCU with limited code memory. Easier to use
 eval expansion (start line with '=')::
 
     ='{L}'+'; '.join(['{0}:fsref/{1}'.format(i,i*0.5+1) for i in range(0,11)])
 
-  which will be expanded to the same thing.
+which will be expanded to the same thing.
 
 * Free software: MIT license
 * Documentation: https://concon.readthedocs.io.
@@ -129,10 +129,10 @@ eval expansion (start line with '=')::
 
 Notes
 -----
- * Tested on Linux with python 2.7, 3.2, 3.3 and 3.4
- * Tested on Windows XP and Windows 7 with python 2.7 (but it should work on
+* Tested on Linux with python 2.7, 3.2, 3.3 and 3.4
+* Tested on Windows XP and Windows 7 with Python 2.7 (but it should work on
    version 3.2, 3.3 and so on)
- * For more info run application with "-h" parameter
+* For more info run application with "-h" parameter
 
 Credits
 ---------
