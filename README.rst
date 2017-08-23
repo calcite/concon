@@ -7,14 +7,14 @@ Configuration Console (ConCon)
         :target: https://pypi.python.org/pypi/concon
 
 .. image:: https://img.shields.io/travis/JNev/concon.svg
-        :target: https://travis-ci.org/JNev/concon
+        :target: https://travis-ci.org/calcite/concon
 
 .. image:: https://readthedocs.org/projects/concon/badge/?version=latest
         :target: https://concon.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
 
-.. image:: https://pyup.io/repos/github/JNev/concon/shield.svg
-     :target: https://pyup.io/repos/github/JNev/concon/
+.. image:: https://pyup.io/repos/github/calcite/concon/shield.svg
+     :target: https://pyup.io/repos/github/calcite/concon/
      :alt: Updates
 
 
