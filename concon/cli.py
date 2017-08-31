@@ -158,7 +158,7 @@ def read(ctx, file_name):
                                           ctx.obj['config']['usb']['timeout'],
                                           progress_bar=bar)
 
-        cfg_pars.write_setting_to_cfg_file("test.cfg")
+        cfg_pars.write_setting_to_cfg_file(file_name)
         click.secho("Device configuration written to file {0}".format(
             file_name), fg='green')
     except ConConError as ce:
