@@ -130,6 +130,13 @@ which will be expanded to the same thing.
 Notes
 -----
 * Tested on Linux with Python 2.7, 3.2, 3.3 and 3.4
+* If you have **problems with permissions**, you can always use ``sudo``, but
+  better way is create rule for udev. Create file 
+  `/etc/udev/rules.d/11-alps_devices.rules`
+  and paste there following line:
+  ``SUBSYSTEM=="usb", MODE="0644", GROUP="plugdev"``.
+  Unplug USB device, restart udev, plug USB device and try again. Also make
+  sure you are at group ``plugdev``
 * Tested on Windows XP and Windows 7 with Python 2.7 (but it should work on
    version 3.2, 3.3 and so on)
 * For more info run application with "-h" parameter
