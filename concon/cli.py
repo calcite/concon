@@ -18,12 +18,8 @@ DEFAULT_CONFIG = 'config/config.yml'
 DEFAULT_LOG_CONFIG = 'config/logging_global.cfg'
 
 # logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger('UCA console')
-logging.config.fileConfig(
-    pkg_resources.resource_filename('concon',
-                                    DEFAULT_LOG_CONFIG),
-    None,
-    False)
+logger = logging.getLogger('ConCon')
+
 
 
 def report_errors(err):
@@ -38,13 +34,25 @@ def report_errors(err):
               help="Application specific configuration file.")
 @click.option('-d', '--device', default=None,
               help="Selected device to configure.")
+@click.option('--verbose/--quiet', default=False,
+              help="Enable / disable logging to Log.txt file")
 @click.pass_context
-def main(ctx, config, device, args=None):
+def main(ctx, config, device, verbose, args=None):
     """Tool for configuration of devices implementing "Uniprot" communication
     layer over USB (HID profile).
     """
     ctx.obj = {}
     logging.basicConfig(level=logging.ERROR)
+    
+    # Check if verbose mode is on
+    if(verbose):
+        logging.config.fileConfig(
+        pkg_resources.resource_filename('concon',
+                                        DEFAULT_LOG_CONFIG),
+        None,
+        False)
+    # /if verbose
+    
     # TODO: Config doesn't work...
     # logging.config.fileConfig(
     #     pkg_resources.resource_filename('concon', DEFAULT_LOG_CONFIG)
@@ -179,6 +187,7 @@ def device_list(ctx):
     for i in range(len(found_devices)):
         click.echo(" Dev# {0} <{1}>".format(
             i, found_devices[i].name))
+
 
 if __name__ == "__main__":
     main()
