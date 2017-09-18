@@ -17,9 +17,13 @@ from .core import ConConError
 DEFAULT_CONFIG = 'config/config.yml'
 DEFAULT_LOG_CONFIG = 'config/logging_global.cfg'
 
-
 # logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('UCA console')
+logging.config.fileConfig(
+    pkg_resources.resource_filename('concon',
+                                    DEFAULT_LOG_CONFIG),
+    None,
+    False)
 
 
 def report_errors(err):
@@ -89,7 +93,7 @@ def main(ctx, config, device, args=None):
             # Show device selection prompt
             click.secho("More than one configurable devices detected.\n"
                         "Choose one from below and run concon with"
-                        " -d [0 ~ {0}] option.".format(len(found_devices)-1),
+                        " -d [0 ~ {0}] option.".format(len(found_devices) - 1),
                         fg='yellow')
             ctx.invoke(device_list)
             raise click.Abort()
@@ -99,10 +103,9 @@ def main(ctx, config, device, args=None):
         except (IndexError, ValueError):
             report_errors('Invalid device number "{0}". '
                           'Choose between 0~{1}'.format(device,
-                                                        len(found_devices)-1))
+                                                        len(found_devices) - 1))
             ctx.invoke(device_list)
             raise click.Abort()
-
 
 
 @main.command()
@@ -124,7 +127,7 @@ def write(ctx, file_name):
         click.echo("Reading configuration from: {0}".format(file_name))
         cfg_pars.read_setting_from_file(file_name,
                                         ignore_errors=False,
-                                        try_fix_errors=True)
+                                        try_fix_errors=False)
 
         # And send changes to device
         label = "Writing configuration to {0}".format(device.name)

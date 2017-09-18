@@ -106,6 +106,6 @@ class ConConDevice(object):
                                       self._config['usb']['timeout'])
         cfg_pars.read_setting_from_file(file_name,
                                         ignore_errors=False,
-                                        try_fix_errors=True)
+                                        try_fix_errors=False)
 
         cfg_pars.write_setting_to_device()
