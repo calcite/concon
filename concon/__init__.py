@@ -7,4 +7,4 @@ from .core import ConCon
 
 __author__ = """Martin Stejskal"""
 __email__ = 'mstejskal@alps.cz'
-__version__ = '0.9.5'
+__version__ = '0.9.8'

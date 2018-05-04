@@ -210,8 +210,18 @@ def usb_list_connected_devices(vid=None):
         {'find_all': True, }
     devices = []
 
-    for device in usb.core.find(**kwargs):
-        name = device.product or device.address
-        uid = device.bus * 0xff + device.address
-        devices.append((name, device.idVendor, device.idProduct, uid))
+    # Following may fail if user does not have sufficient rights
+    try:
+        for device in usb.core.find(**kwargs):
+            name = device.product or device.address
+            uid = device.bus * 0xff + device.address
+            devices.append((name, device.idVendor, device.idProduct, uid))
+    except ValueError as e:
+        msg = "{}\n\n"\
+              "It looks like you can not access USB devices."\
+              " Maybe insufficient rights?\n"\
+              "Please check if you can read/write to USB devices (refer to "\
+              "README file)"\
+              "".format(e)
+        raise Exception(msg)
     return devices
