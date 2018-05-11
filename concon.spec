@@ -1,23 +1,59 @@
 # -*- mode: python -*-
-a = Analysis(['concon.py'],
-             pathex=['UCA_lib/usb_driver_lib/windows', 'UCA_lib/usb_driver_lib/linux', 'UCA_lib/usb_driver_lib', 'C:\\WORK\\HF\\SW\\concon'],
-             hiddenimports=[],
-             hookspath=None,
-             runtime_hooks=None)
 
-config_tree = Tree('config', prefix = 'config')
-#Fixes one PyInstaller bug: http://stackoverflow.com/questions/19055089/pyinstaller-onefile-warning-pyconfig-h-when-importing-scipy-or-scipy-signal
-a.datas = list({tuple(map(str.upper, t)) for t in a.datas})
+block_cipher = None
 
-pyz = PYZ(a.pure)
+def Entrypoint(dist, group, name, **kwargs):
+    import pkg_resources
+
+    # get toplevel packages of distribution from metadata
+    def get_toplevel(dist):
+        distribution = pkg_resources.get_distribution(dist)
+        if distribution.has_metadata('top_level.txt'):
+            return list(distribution.get_metadata('top_level.txt').split())
+        else:
+            return []
+
+    kwargs.setdefault('hiddenimports', [])
+    packages = []
+    for distribution in kwargs['hiddenimports']:
+        packages += get_toplevel(distribution)
+
+    kwargs.setdefault('pathex', [])
+    # get the entry point
+    ep = pkg_resources.get_entry_info(dist, group, name)
+    # insert path of the egg at the verify front of the search path
+    kwargs['pathex'] = [ep.dist.location] + kwargs['pathex']
+    # script name must not be a valid module name to avoid name clashes on import
+    script_path = os.path.join(workpath, name + '-script.py')
+    print("creating script for entry point", dist, group, name)
+    with open(script_path, 'w') as fh:
+        print("import", ep.module_name, file=fh)
+        print("%s.%s()" % (ep.module_name, '.'.join(ep.attrs)), file=fh)
+        for package in packages:
+            print("import", package, file=fh)
+
+    return Analysis(
+        [script_path] + kwargs.get('scripts', []),
+        **kwargs
+    )
+# /Entrypoint
+
+a = Entrypoint('concon', 'console_scripts', 'concon')
+
+pyz = PYZ(a.pure, a.zipped_data,
+             cipher=block_cipher)
 exe = EXE(pyz,
           a.scripts,
-          a.binaries,
-          a.zipfiles,
-          a.datas,
-		  config_tree,
-          name='concon.exe',
+          exclude_binaries=True,
+          name='concon',
           debug=False,
-          strip=None,
+          strip=False,
           upx=True,
           console=True )
+coll = COLLECT(exe,
+               a.binaries,
+               a.zipfiles,
+               a.datas,
+               strip=False,
+               upx=True,
+               name='concon')
