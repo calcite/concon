@@ -64,5 +64,8 @@ target/
 # PyCharm stuff
 .idea/
 
+# PyTest
+.pytest_cache/
+
 # ConCon stuff
 Log.txt

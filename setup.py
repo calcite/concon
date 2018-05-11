@@ -32,7 +32,7 @@ test_requirements = [
 
 setup(
     name='concon',
-    version='0.9.8',
+    version='0.9.9',
     description="Universal configuration tool for USB devices implementing the Uniprot (HID) communication layer.",
     long_description=readme + '\n\n' + history,
     author="Martin Stejskal",
@@ -62,6 +62,7 @@ setup(
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
     ],
     test_suite='tests',
     tests_require=test_requirements,
